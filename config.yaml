@@ -1,0 +1,18 @@
+collection:
+  interval: 2h
+collectors:
+  m365:
+    enabled: true
+    tenants:
+      - instance: tenant-a
+        tenantId: ${M365_TENANT_ID}
+        clientId: ${M365_CLIENT_ID}
+        clientSecret: ${M365_CLIENT_SECRET}
+  vmware:
+    enabled: true
+    vcenters:
+      - instance: vcsa01
+        host: ${VCENTER_HOST}
+        username: ${VCENTER_USER}
+        password: ${VCENTER_PASSWORD}
+        insecureSkipVerify: false

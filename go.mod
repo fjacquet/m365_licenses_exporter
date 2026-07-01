@@ -3,6 +3,7 @@ module github.com/fjacquet/licenses_exporter
 go 1.26.4
 
 require (
+	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/sirupsen/logrus v1.9.4
 	go.opentelemetry.io/otel v1.44.0
@@ -10,6 +11,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.44.0
 	go.opentelemetry.io/otel/sdk/metric v1.44.0
 	golang.org/x/sync v0.21.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
