@@ -55,6 +55,12 @@ background loop (every collection.interval)
 
 - **Serve HTTP + `/health` before the first collection cycle** (login/first-poll can
   exceed the collection timeout; blocking startup stalls `/metrics`). ADR `pstore` 0007.
+- **Cold-start snapshot (absent-not-zero at startup).** The `SnapshotStore` is
+  initialized with a cold-start snapshot carrying **only** exporter self-metrics
+  (`license_build_info`). No `license_up`, `license_seats_*`, or any per-target series is
+  emitted until each source's **first** collection resolves (success *or* failure) — so a
+  scrape during the cold window never sees a transient `0` or a flapping target. `/health`
+  reports `starting` until the first full cycle completes, then `ok`.
 - **Per-source failure degrades gracefully** — a failed vCenter/tenant emits
   `license_up{vendor,instance}=0` and the cycle continues for every other source;
   one bad target never fails the whole cycle.
@@ -63,6 +69,23 @@ background loop (every collection.interval)
 - **Dual export** both tested: collector tests assert via **both** the Prometheus
   registry gather **and** an OTLP `ManualReader`.
 - Config **hot reload**: SIGHUP + file-watch, rebuild-and-swap. ADR `ppdd` 0005.
+  Each collection cycle runs under a **cancelable `context.Context`**. On reload the active
+  cycle's context is canceled (in-flight SDK/HTTP requests abort), config is re-parsed and
+  **validated**, and a **fresh loop is spawned immediately** (the 2h timer resets). The
+  **last-good snapshot keeps serving** throughout — swapped only when the new loop produces
+  its first snapshot — so `/metrics` never goes blank across a reload. A reload that fails
+  validation is **rejected**; the running loop is left intact.
+
+### OTLP export specifics
+
+- **Resource attributes** on the OTLP `MeterProvider`: `service.name="licenses_exporter"`,
+  `service.version=<build version>`, `service.instance.id=<hostname or configured id>`.
+- **Timestamps.** Metrics are OTLP **observable gauges** read by a periodic reader, so each
+  point carries the reader's **observation time** — observable-gauge points cannot be
+  back-dated to the snapshot's collection time, and doing so is not idiomatic. Data
+  *freshness/age* is conveyed explicitly by `license_collector_last_success_timestamp_seconds`
+  (age = `now - last_success`), which is exactly why that metric is first-class rather than a
+  back-dated point timestamp.
 
 ## 3. The `Source` collector abstraction
 
@@ -170,12 +193,27 @@ The family SDK rule: **official vendor Go SDK if available AND useful, else hand
   `expirationDate`). No regression. → **use govmomi.**
 - Map: `Total`→`seats_total`, `Used`→`seats_used`, `CostUnit`→`unit`, `Name`→`product`,
   `expirationDate` property → `expiration_timestamp_seconds` (omit if absent/perpetual).
+- **Stateless session per cycle.** Polling is every 2h and idle vSphere sessions time out
+  (~30 min default), so the VMware `Source` is fully stateless: each cycle does a fresh
+  `Login` → single `LicenseManager` PropertyCollector query → `Logout` + close. No persisted
+  cookie, no session-refresh code. Recorded in the client ADR.
+- **Unlimited licenses → omit `seats_total`.** vSphere encodes unlimited capacity as
+  `Total == 0` (eval / site / academic keys). Emitting `seats_total=0` would be a false
+  zero-capacity *and* a spurious `used > total`. Per absent-not-zero, treat `Total <= 0` as
+  unlimited: **omit `license_seats_total`** for that product, emit only `license_seats_used`;
+  PromQL detects it with `absent(license_seats_total{...})`. The `<= 0` guard is deliberate so
+  the exact sentinel (`0` vs `-1`) is confirmed against `vcsim` + a real vCenter at impl (§11).
 
 ### Microsoft 365 — `msgraph-sdk-go` (SDK) — roadmap-justified
 
 - Endpoint: `GET /v1.0/subscribedSkus` → `skuPartNumber`→`product`, `prepaidUnits.enabled`
   →`seats_total`, `consumedUnits`→`seats_used`, `unit="users"`. M365 subscription SKUs
   generally have no per-SKU expiration via this endpoint → `expiration` series omitted.
+- **Required Graph application permission:** `Organization.Read.All` (or `Directory.Read.All`)
+  granted to the Entra ID app registration — documented in `docs/deployment/` so operators
+  pre-grant it before first run.
+- **Pagination:** follow `@odata.nextLink` via the SDK's `PageIterator`, even though
+  `subscribedSkus` rarely pages — never assume a single page for large tenants.
 - **Deviation recorded honestly:** the strict rule would hand-roll `resty` + `azidentity`
   for one endpoint (the full Graph SDK is a heavy generated dep tree — the "irrelevant
   dependency tree" regression). Chosen anyway as a **forward-looking exception**: phase-2
@@ -258,7 +296,10 @@ only repo-owned transports; the ADR documents the typed-SDK trace gap. Retry **e
 ## 9. Testing (TDD)
 
 - **VMware:** govmomi's **`vcsim`** simulator provides a real `LicenseManager` — fixture
-  the license list and assert samples.
+  the license list **including an unlimited `Total==0` key and a dated key**, and assert
+  both the omitted-`seats_total` and the expiration-timestamp behaviors. Also assert the
+  cold-start snapshot (only `license_build_info` before first collect) and reload
+  (snapshot continuity + context cancellation).
 - **M365:** mock the Graph client interface (or `httptest` behind the SDK's transport)
   returning canned `subscribedSkus` payloads incl. malformed values (absent-not-zero).
 - Every collector test asserts via **both** the Prometheus registry gather and an OTLP
@@ -286,3 +327,5 @@ only repo-owned transports; the ADR documents the typed-SDK trace gap. Retry **e
   as a `KeyAnyValue` — confirm the key/format against `vcsim` + a real vCenter during impl.
 - M365 SKU expiration is generally absent from `subscribedSkus`; if a tenant exposes it
   elsewhere it is a later enhancement, not v1.
+- VMware unlimited-capacity sentinel: spec assumes `Total == 0` = unlimited; confirm the
+  exact encoding (`0` vs `-1`) against `vcsim` + a real vCenter and keep the `<= 0` guard.

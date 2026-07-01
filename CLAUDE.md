@@ -38,12 +38,20 @@ their `[]Source` from config: `internal/m365` (Microsoft Graph via `msgraph-sdk-
 - **Raw facts, absent-never-zero.** Expose `license_seats_total`, `license_seats_used`, and
   `license_expiration_timestamp_seconds` (**omitted** when perpetual — no `9999` sentinel).
   No exporter-computed `days_to_expiration` or `compliance_status`; derive those in PromQL /
-  alert rules. An unparseable value yields an **absent** sample, never a fake `0`.
+  alert rules. An unparseable value yields an **absent** sample, never a fake `0`. Two
+  concrete cases: at **cold start** only `license_build_info` is emitted — no `license_up`
+  or target series until each source's first collect resolves; a **VMware unlimited** key
+  (`Total <= 0`) omits `license_seats_total` and emits only `license_seats_used`.
 - **Label-key consistency.** A metric name carries one label-key set across all series (all
   vendors); a label-parity test guards this.
-- **Auth.** VMware = govmomi session login; M365 = `azidentity` client-credentials (via the SDK).
-  Retry **excludes 4xx** (never retry auth failures). Both SDKs are non-injectable, so `--trace`
-  wraps only repo-owned transports — never enable SDK debug (leaks bearer / `Set-Cookie`).
+- **Auth.** VMware = govmomi session login, **stateless per 2h cycle** (login → query →
+  logout+close; no persisted cookie); M365 = `azidentity` client-credentials (via the SDK),
+  Graph app permission `Organization.Read.All`. Retry **excludes 4xx** (never retry auth
+  failures). Both SDKs are non-injectable, so `--trace` wraps only repo-owned transports —
+  never enable SDK debug (leaks bearer / `Set-Cookie`).
+- **Reload is cancelable.** Each collection cycle runs under a cancelable context; SIGHUP
+  cancels in-flight requests, re-validates config, respawns the loop, and keeps serving the
+  last-good snapshot until the new one is ready (never blanks `/metrics`).
 - **config.yaml is the way.** Collector toggling is `enabled:` per collector, not an env var;
   `${ENV}` refs expand in host/user/secret; `.env` is a convenience, never the source of truth.
 - **Always update docs (`docs/metrics.md`) + `CHANGELOG.md`** in the same change as a feature.
