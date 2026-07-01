@@ -4,11 +4,13 @@ go 1.26.4
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/joho/godotenv v1.5.1
 	github.com/microsoftgraph/msgraph-sdk-go v1.99.0
 	github.com/microsoftgraph/msgraph-sdk-go-core v1.4.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/sirupsen/logrus v1.9.4
+	github.com/spf13/cobra v1.10.2
 	github.com/vmware/govmomi v0.55.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/metric v1.44.0
@@ -28,6 +30,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/microsoft/kiota-abstractions-go v1.9.4 // indirect
 	github.com/microsoft/kiota-authentication-azure-go v1.3.1 // indirect
@@ -41,6 +44,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.69.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
