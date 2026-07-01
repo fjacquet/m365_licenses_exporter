@@ -86,11 +86,11 @@ func serveWithReload(cfgPath, version, addr string) error {
 
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
+		go func(cfg *config.Config) {
 			if err := app.Run(ctx, cfg, version, addr, false); err != nil {
 				logrus.WithError(err).Error("run cycle ended")
 			}
-		}()
+		}(cfg)
 
 		var newCfg *config.Config
 		for newCfg == nil {
