@@ -24,9 +24,19 @@ func TestCollectAgainstVcsim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect against vcsim: %v", err)
 	}
+	if len(samples) == 0 {
+		t.Fatal("Collect against vcsim returned no samples (vcsim returned zero licenses?)")
+	}
+	sawSeatsUsed := false
 	for _, s := range samples {
 		if s.Name == "license_seats_total" && s.Value <= 0 {
 			t.Fatalf("emitted non-positive seats_total %v (unlimited must be omitted)", s.Value)
 		}
+		if s.Name == "license_seats_used" {
+			sawSeatsUsed = true
+		}
+	}
+	if !sawSeatsUsed {
+		t.Fatal("expected at least one license_seats_used sample from vcsim, got none")
 	}
 }
