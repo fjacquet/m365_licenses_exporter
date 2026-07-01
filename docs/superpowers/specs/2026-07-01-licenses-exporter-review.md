@@ -53,9 +53,9 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 * **Rationale:** This guarantees the exporter is enterprise-ready and will not truncate licenses on massive tenants with hundreds of subscription SKUs. It also builds the pagination groundwork for future Phase 2 Entra ID metrics.
 
 ### 2.6. OTLP Exporter Push Timestamping Strategy
-* **Decision:** **Timestamp with the latest snapshot success time**
-* **Mechanics:** While the OTLP exporter may push metrics frequently (e.g., every 15-60 seconds), each pushed metric point will be stamped with the **timestamp of the latest snapshot's success** (the time the third-party control planes were last successfully polled).
-* **Rationale:** This accurately represents the data age to downstream OTLP-compatible backends (like Dynatrace, Datadog, or New Relic) and aligns with the pull-based Prometheus scraping paradigm.
+* **Decision:** **Observation-time points + explicit freshness metric** — *supersedes the initial snapshot-time proposal* (resolved 2026-07-01 after SDK review).
+* **Mechanics:** The OTLP path stays on the family-standard **observable gauges + periodic reader**; each pushed point carries the reader's **observation time** (exactly as a Prometheus gauge behaves under scrape). Data age is conveyed explicitly by `license_collector_last_success_timestamp_seconds`, from which consumers compute `age = now - last_success`.
+* **Rationale:** Observable-gauge points **cannot be back-dated** in the OTel-Go SDK without abandoning the observable/periodic-reader model for a manual `metricdata.Export()` loop — a family-OTLP divergence. More importantly, stamping points with a 0–2h-old snapshot time would push them outside the timestamp-lookback window most metrics backends enforce (~1h is common on Prometheus-OTLP / Datadog / Dynatrace), **dropping data** for much of each 2h cycle. The freshness metric conveys the same data-age signal safely and keeps the exporter family-consistent. See design spec §2, "OTLP export specifics".
 
 ---
 
@@ -64,6 +64,6 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 These decisions update the planned codebase structure as follows:
 
 * **`internal/license/collector.go`:** Needs to maintain a cancelable context per run, and support a "cold start" state where the initial `Snapshot` is empty (containing no target samples).
-* **`internal/license/otlp.go`:** The push loop must extract the `LastSuccessTimestamp` from the snapshot and apply it as the metric point timestamp.
+* **`internal/license/otlp.go`:** Observable gauges read the latest snapshot and push at **observation time**; the collector emits `license_collector_last_success_timestamp_seconds` from the snapshot's `LastSuccessTimestamp` (data age is derived downstream, never stamped onto points).
 * **`internal/vmware/source.go`:** The `Collect` method must handle login, property fetch, and logout stateless sequence under context.
 * **`internal/m365/source.go`:** The `Collect` method must handle iterative page fetches using the Graph SDK's page iterator or custom nextPageToken loop under context.
