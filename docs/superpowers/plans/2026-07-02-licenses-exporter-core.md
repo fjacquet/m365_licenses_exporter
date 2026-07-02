@@ -52,27 +52,30 @@ Package-level renames when a symbol becomes exported API (everything else moves 
 ### Task 1: Scaffold the core module
 
 **Files:**
+
 - Create: `go.mod`, `doc.go`, `Makefile`, `.golangci.yml`, `.github/workflows/ci.yml`, `.github/workflows/security.yml`, `.github/dependabot.yml`, `LICENSE`, `README.md`, `.gitignore`
 - Test: `scaffold_test.go`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: an importable module `github.com/fjacquet/licenses-exporter-core`, package `licenses_core`.
 
 - [ ] **Step 1: Write the failing test**
 
 `scaffold_test.go`:
+
 ```go
 package licenses_core
 
 import "testing"
 
 func TestModuleBuilds(t *testing.T) {
-	// Placeholder proving the package compiles + test harness runs; replaced by
-	// real tests in later tasks. Kept trivial on purpose.
-	if want := "license_"; want == "" {
-		t.Fatal("unreachable")
-	}
+ // Placeholder proving the package compiles + test harness runs; replaced by
+ // real tests in later tasks. Kept trivial on purpose.
+ if want := "license_"; want == "" {
+  t.Fatal("unreachable")
+ }
 }
 ```
 
@@ -84,6 +87,7 @@ Expected: FAIL — `go.mod`/package not yet present (`go: cannot find main modul
 - [ ] **Step 3: Create the module scaffold**
 
 `go.mod`:
+
 ```
 module github.com/fjacquet/licenses-exporter-core
 
@@ -91,6 +95,7 @@ go 1.26.4
 ```
 
 `doc.go`:
+
 ```go
 // Package licenses_core is the vendor-neutral engine for the licenses_exporter
 // family: the license_ metric schema and its constructors, an immutable snapshot
@@ -121,12 +126,15 @@ git commit -m "chore: scaffold licenses-exporter-core module (library CI, no bin
 ### Task 2: Port the schema — samples, labels, metric constructors
 
 **Files:**
+
 - Create: `sample.go`, `metrics.go`, `metrics_test.go`
 - Remove (from source repo, done in Plan 2): `internal/license/sample.go`, `internal/license/metrics.go`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
+
   ```go
   type Label struct{ Key, Value string }
   type Sample struct{ Name string; Value float64; Labels []Label }
@@ -142,32 +150,33 @@ git commit -m "chore: scaffold licenses-exporter-core module (library CI, no bin
 - [ ] **Step 1: Write the failing test**
 
 Port `internal/license/metrics_test.go` into `metrics_test.go` (change `package license` → `package licenses_core`, drop the `license.` qualifier). Then ADD the schema-identity golden test that locks label keys:
+
 ```go
 func TestMetricLabelKeysAreLocked(t *testing.T) {
-	// Guards schema identity across every vendor: if a constructor's label set
-	// changes, this fails before any vendor ships.
-	cases := []struct {
-		name   string
-		sample Sample
-		want   []string
-	}{
-		{"seats", SeatSample(MetricSeatsTotal, "microsoft", "SPE_E5", "users", "t-a", 1), []string{"vendor", "product", "unit", "instance"}},
-		{"exp", ExpirationSample("microsoft", "SPE_E5", "t-a", 1), []string{"vendor", "product", "instance"}},
-	}
-	for _, c := range cases {
-		var got []string
-		for _, l := range c.sample.Labels {
-			got = append(got, l.Key)
-		}
-		if len(got) != len(c.want) {
-			t.Fatalf("%s: label keys %v, want %v", c.name, got, c.want)
-		}
-		for i := range c.want {
-			if got[i] != c.want[i] {
-				t.Fatalf("%s: label[%d]=%q want %q", c.name, i, got[i], c.want[i])
-			}
-		}
-	}
+ // Guards schema identity across every vendor: if a constructor's label set
+ // changes, this fails before any vendor ships.
+ cases := []struct {
+  name   string
+  sample Sample
+  want   []string
+ }{
+  {"seats", SeatSample(MetricSeatsTotal, "microsoft", "SPE_E5", "users", "t-a", 1), []string{"vendor", "product", "unit", "instance"}},
+  {"exp", ExpirationSample("microsoft", "SPE_E5", "t-a", 1), []string{"vendor", "product", "instance"}},
+ }
+ for _, c := range cases {
+  var got []string
+  for _, l := range c.sample.Labels {
+   got = append(got, l.Key)
+  }
+  if len(got) != len(c.want) {
+   t.Fatalf("%s: label keys %v, want %v", c.name, got, c.want)
+  }
+  for i := range c.want {
+   if got[i] != c.want[i] {
+    t.Fatalf("%s: label[%d]=%q want %q", c.name, i, got[i], c.want[i])
+   }
+  }
+ }
 }
 ```
 
@@ -197,11 +206,14 @@ git commit -m "feat: license_ schema + constructors with label-key golden test"
 ### Task 3: Port the Source seam + snapshot store, add fakeSource
 
 **Files:**
+
 - Create: `source.go`, `snapshot.go`, `snapshot_test.go`, `fake_source_test.go`
 
 **Interfaces:**
+
 - Consumes: `Sample` (Task 2).
 - Produces:
+
   ```go
   type Source interface {
       Vendor() string
@@ -219,6 +231,7 @@ git commit -m "feat: license_ schema + constructors with label-key golden test"
 - [ ] **Step 1: Write the failing test**
 
 Add `fake_source_test.go`:
+
 ```go
 package licenses_core
 
@@ -226,17 +239,18 @@ import "context"
 
 // fakeSource is a deterministic Source for engine tests — no vendor SDK.
 type fakeSource struct {
-	vendor, instance string
-	samples          []Sample
-	err              error
+ vendor, instance string
+ samples          []Sample
+ err              error
 }
 
 func (f *fakeSource) Vendor() string   { return f.vendor }
 func (f *fakeSource) Instance() string { return f.instance }
 func (f *fakeSource) Collect(context.Context) ([]Sample, error) {
-	return f.samples, f.err
+ return f.samples, f.err
 }
 ```
+
 Port `internal/license/snapshot_test.go` → `snapshot_test.go` (package + qualifier edits).
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -265,11 +279,14 @@ git commit -m "feat: Source seam + immutable SnapshotStore + test fakeSource"
 ### Task 4: Port the collection loop
 
 **Files:**
+
 - Create: `collector.go`, `collector_test.go`
 
 **Interfaces:**
+
 - Consumes: `Source`, `SnapshotStore`, `Sample` (Tasks 2–3).
 - Produces:
+
   ```go
   type Collector struct { /* unchanged */ }
   func NewCollector(sources []Source, store *SnapshotStore, version, goversion string, timeout time.Duration, now func() time.Time) *Collector
@@ -308,9 +325,11 @@ git commit -m "feat: errgroup collection loop with per-source degradation"
 ### Task 5: Port the Prometheus unchecked collector
 
 **Files:**
+
 - Create: `prometheus.go`, `prometheus_test.go`
 
 **Interfaces:**
+
 - Consumes: `SnapshotStore`, `Sample` (Tasks 2–3).
 - Produces: `func NewPromCollector(store *SnapshotStore) prometheus.Collector`.
 
@@ -344,13 +363,20 @@ git commit -m "feat: unchecked Prometheus collector over the snapshot"
 ### Task 6: Port the OTLP export path
 
 **Files:**
+
 - Create: `otlp.go`, `otlp_test.go`
 
 **Interfaces:**
+
 - Consumes: `SnapshotStore`, `OTLPConfig` (defined here; Base wires it in Task 7).
 - Produces:
+
   ```go
-  type OTLPConfig struct { /* Endpoint, Insecure, Headers, PushInterval — from config */ }
+  type OTLPConfig struct { Endpoint string; Insecure bool /* verbatim from source config.OTLPConfig */ }
+  // NOTE: source config.OTLPConfig has ONLY these two fields; the push cadence is a
+  // hardcoded `const otlpPushInterval = 60*time.Second` in otlp.go, NOT a config field.
+  // (An earlier draft sketched Headers/PushInterval — dropped in T6 integration to hold
+  // behaviour-parity. Task 7's Base embeds this 2-field struct.)
   func setupOTLP(ctx context.Context, cfg OTLPConfig, version, instanceID string, store *SnapshotStore) (shutdown func(context.Context) error, err error)
   // RegisterOTLP registers the observable gauges against a meter/reader.
   ```
@@ -385,11 +411,14 @@ git commit -m "feat: OTLP observable-gauge export (gated on endpoint)"
 ### Task 7: Port config primitives and define Base
 
 **Files:**
+
 - Create: `config.go`, `dotenv.go`, `config_test.go`
 
 **Interfaces:**
+
 - Consumes: `OTLPConfig` (Task 6).
 - Produces:
+
   ```go
   type CollectionConfig struct { Interval time.Duration `yaml:"interval"` }
   type Base struct {
@@ -435,11 +464,14 @@ git commit -m "feat: config primitives + Base (collection/otlp) + LoadYAML"
 ### Task 8: Port health + the server and reload state machine
 
 **Files:**
+
 - Create: `health.go`, `server.go`, `health_test.go`, `server_test.go` (ported reload/app tests)
 
 **Interfaces:**
+
 - Consumes: `SnapshotStore`, `Collector`, `Source`, `Base`, `OTLPConfig` (Tasks 3–7).
 - Produces:
+
   ```go
   type Health struct { /* unchanged */ }           // ServeHTTP + SetReady
   type Server struct { /* unchanged fields */ }
@@ -448,6 +480,7 @@ git commit -m "feat: config primitives + Base (collection/otlp) + LoadYAML"
   func (s *Server) ReloadLoop(initialInterval time.Duration, reloads, shutdown <-chan struct{}, load func() (Base, []Source, error))
   func (s *Server) Shutdown(ctx context.Context) error
   ```
+
   Change from the current `app.Server`: `NewServer` takes `Base` + a `buildSources func() ([]Source, error)` (no vendor config type); `RunCollection` takes the interval directly; `ReloadLoop`'s `load` returns `(Base, []Source, error)`.
 
 - [ ] **Step 1: Write the failing test**
@@ -480,11 +513,14 @@ git commit -m "feat: HTTP server + shared-store cancelable reload state machine"
 ### Task 9: Define the entry point — App, Main, RunOnce
 
 **Files:**
+
 - Create: `run.go`, `run_test.go`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces:
+
   ```go
   type App struct {
       Version string
@@ -501,23 +537,24 @@ git commit -m "feat: HTTP server + shared-store cancelable reload state machine"
 - [ ] **Step 1: Write the failing test**
 
 `run_test.go`:
+
 ```go
 func TestMainOnceDumpsWithFakeSource(t *testing.T) {
-	src := &fakeSource{vendor: "acme", instance: "i1",
-		samples: []Sample{SeatSample(MetricSeatsUsed, "acme", "p", "u", "i1", 3)}}
-	app := App{Version: "test", Once: true, Debug: false,
-		Load: func() (Base, []Source, error) {
-			return Base{Collection: CollectionConfig{Interval: time.Hour}}, []Source{src}, nil
-		}}
-	if err := Main(app); err != nil {
-		t.Fatalf("Main --once returned error: %v", err)
-	}
+ src := &fakeSource{vendor: "acme", instance: "i1",
+  samples: []Sample{SeatSample(MetricSeatsUsed, "acme", "p", "u", "i1", 3)}}
+ app := App{Version: "test", Once: true, Debug: false,
+  Load: func() (Base, []Source, error) {
+   return Base{Collection: CollectionConfig{Interval: time.Hour}}, []Source{src}, nil
+  }}
+ if err := Main(app); err != nil {
+  t.Fatalf("Main --once returned error: %v", err)
+ }
 }
 
 func TestMainServesAndReloads(t *testing.T) {
-	// Bind :0, hit /health and /metrics, trigger one reload via the exported
-	// hook, confirm /metrics still serves the prior snapshot throughout, then
-	// shut down cleanly. (Reuse the gatedSource from fake_source_test.go.)
+ // Bind :0, hit /health and /metrics, trigger one reload via the exported
+ // hook, confirm /metrics still serves the prior snapshot throughout, then
+ // shut down cleanly. (Reuse the gatedSource from fake_source_test.go.)
 }
 ```
 
@@ -529,6 +566,7 @@ Expected: FAIL — `undefined: App`, `undefined: Main`.
 - [ ] **Step 3: Move the implementation**
 
 Create `run.go`: move `app.RunOnce` (dump gated on `Debug`) and `dumpSamples` from `internal/app/app.go`, and the `serveWithReload` body + `watcherEvents`/`watcherErrors`/signal adapter from `main.go`. `Main(app)`:
+
 1. `base, sources, err := app.Load()`; on error return it (fatal at startup).
 2. if `app.Once`: `return RunOnce(ctx, base, sources, app.Version, app.Debug)`.
 3. else: `NewServer(base, app.Version, app.Addr, func() ([]Source, error){ ... })`, wire signals + fsnotify into the coalescing `reloads`/`shutdown` channels, and drive `ReloadLoop(base.Collection.Interval, reloads, shutdown, app.Load)`. The config file path for the watcher comes from the consumer via a small `App` addition if needed — keep the watcher optional (SIGHUP always works), matching current behaviour.
@@ -552,9 +590,11 @@ git commit -m "feat: core.App + core.Main entry point (once/serve/reload)"
 ### Task 10: Green gate + publish v0.1.0
 
 **Files:**
+
 - Modify: `README.md` (usage: the ~30-line consumer `main.go` example from the spec), `go.mod`/`go.sum` (tidy)
 
 **Interfaces:**
+
 - Consumes: the whole module.
 - Produces: a published module version `v0.1.0`.
 
@@ -580,6 +620,7 @@ git commit -m "docs: consumer contract + tidy for v0.1.0"
 git tag -a v0.1.0 -m "v0.1.0 — extracted core engine (API settling; promoted to v1.0.0 after a 2nd consumer)"
 git push origin main --tags
 ```
+
 Expected: `go list -m github.com/fjacquet/licenses-exporter-core@v0.1.0` resolves.
 
 - [ ] **Step 5: Verify importability**
@@ -592,11 +633,13 @@ Expected: builds clean.
 ## Notes for the follow-on (Plan 2: m365_licenses_exporter)
 
 Not part of this plan; recorded so the seam stays honest:
+
 - This repo (`licenses_exporter`) adds `require github.com/fjacquet/licenses-exporter-core v0.1.0`, deletes `internal/license`, `internal/app`, `internal/config`, `internal/vmware`, and `main.go`'s engine body; keeps `internal/m365` and a thin `main.go` calling `core.Main`.
 - Define `type Config struct { core.Base yaml:",inline"; M365 M365Config yaml:"m365" }`; `m365.NewSources` returns `[]core.Source`.
 - **Correctness oracle:** a golden `--once --debug` scrape must match today's unified exporter run with only m365 enabled (modulo instance labels).
 - Resolve the deferred repo-rename + module-path decision (`licenses_exporter` → `m365_licenses_exporter`) before starting.
 - `vmware_licenses_exporter` (Plan 3) then ports `internal/vmware` onto core and promotes core to `v1.0.0`; `veeam_licenses_exporter` (Plan 4) needs a Veeam licensing-API research pass first.
+
 ```
 
 ---

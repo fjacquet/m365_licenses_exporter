@@ -57,6 +57,7 @@ Three forces motivate splitting per vendor:
    one-repo-per-vendor. The unified exporter is the outlier.
 
 **Decisions taken** (this session):
+
 - Split **per vendor company**, keeping a **shared `license_` schema**.
 - Structure: **multi-repo + a shared `licenses-exporter-core` module** (not a
   monorepo — the VMware/Veeam repos must never compile `msgraph-sdk-go`).
@@ -65,6 +66,7 @@ Three forces motivate splitting per vendor:
   cross-vendor view, which is the product).
 
 **Explicitly out of scope of this spec** (own sub-projects later):
+
 - `vmware_licenses_exporter` (second consumer; promotes core to v1.0.0).
 - `veeam_licenses_exporter` (new collector; needs a Veeam licensing-API research
   pass first).
@@ -137,7 +139,7 @@ and nothing else engine-related.
 // Base is the vendor-neutral config block. A vendor config embeds it inline.
 type Base struct {
     Collection CollectionConfig `yaml:"collection"` // Interval (default 2h)
-    OTLP       OTLPConfig       `yaml:"otlp"`        // Endpoint, Insecure, Headers, PushInterval
+    OTLP       OTLPConfig       `yaml:"otlp"`        // Endpoint, Insecure (verbatim from source; push cadence is a const, not config)
 }
 
 func LoadYAML(path string, into any) error          // read + strict ${ENV} expand + unmarshal
