@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
-	github.com/fjacquet/licenses-exporter-core v0.1.0
+	github.com/fjacquet/licenses-exporter-core v1.0.0
 	github.com/microsoftgraph/msgraph-sdk-go v1.99.0
 	github.com/microsoftgraph/msgraph-sdk-go-core v1.4.1
 	github.com/sirupsen/logrus v1.9.4
