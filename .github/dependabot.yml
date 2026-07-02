@@ -1,0 +1,22 @@
+# Go modules and the Dockerfile base image. GitHub Actions are consumed as
+# reusable-workflow callers (fjacquet/ci@v1), not local pinned actions, so no
+# github-actions ecosystem entry is needed here.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
