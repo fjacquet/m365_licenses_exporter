@@ -1277,10 +1277,12 @@ git commit -m "feat(config): YAML load with env expansion, duration interval, va
 ## Task 7: VMware collector (govmomi, stateless, unlimited-aware)
 
 **Files:**
+
 - Create: `internal/vmware/parse.go`, `internal/vmware/source.go`, `internal/vmware/vmware.go`
 - Test: `internal/vmware/parse_test.go`, `internal/vmware/source_test.go`
 
 **Interfaces:**
+
 - Consumes: `license.Sample`, `license.Source`, `license.SeatSample`, `license.ExpirationSample` (Tasks 1–3); `config.VMwareRaw`, `config.VCenterRaw` (Task 6).
 - Produces:
   - `func licensesToSamples(instance string, infos []types.LicenseManagerLicenseInfo) []license.Sample` — pure. `Total > 0` → `seats_total`; always `seats_used`; `CostUnit` → `unit` (fallback `"unit"` if empty); `Name` → `product`; `expirationDate` property (a `time.Time`) → `ExpirationSample`; **`Total <= 0` (unlimited) omits `seats_total`**.
@@ -1292,95 +1294,98 @@ git commit -m "feat(config): YAML load with env expansion, duration interval, va
 - [ ] **Step 1: Add the dependency**
 
 Run:
+
 ```bash
 go get github.com/vmware/govmomi
 go doc github.com/vmware/govmomi/vim25/types.LicenseManagerLicenseInfo
 ```
+
 Note the `Used` and `Properties` field types from the `go doc` output before writing parse.
 
 - [ ] **Step 2: Write the failing parse test**
 
 Create `internal/vmware/parse_test.go`:
+
 ```go
 package vmware
 
 import (
-	"testing"
-	"time"
+ "testing"
+ "time"
 
-	"github.com/vmware/govmomi/vim25/types"
+ "github.com/vmware/govmomi/vim25/types"
 )
 
 type sampleView struct {
-	name  string
-	value float64
-	unit  string
-	prod  string
+ name  string
+ value float64
+ unit  string
+ prod  string
 }
 
 func find(samples []sampleView, name string) (sampleView, bool) {
-	for _, s := range samples {
-		if s.name == name {
-			return s, true
-		}
-	}
-	return sampleView{}, false
+ for _, s := range samples {
+  if s.name == name {
+   return s, true
+  }
+ }
+ return sampleView{}, false
 }
 
 func view(instance string, infos []types.LicenseManagerLicenseInfo) []sampleView {
-	out := []sampleView{}
-	for _, s := range licensesToSamples(instance, infos) {
-		v := sampleView{name: s.Name, value: s.Value}
-		for _, l := range s.Labels {
-			switch l.Key {
-			case "unit":
-				v.unit = l.Value
-			case "product":
-				v.prod = l.Value
-			}
-		}
-		out = append(out, v)
-	}
-	return out
+ out := []sampleView{}
+ for _, s := range licensesToSamples(instance, infos) {
+  v := sampleView{name: s.Name, value: s.Value}
+  for _, l := range s.Labels {
+   switch l.Key {
+   case "unit":
+    v.unit = l.Value
+   case "product":
+    v.prod = l.Value
+   }
+  }
+  out = append(out, v)
+ }
+ return out
 }
 
 func TestLimitedLicenseEmitsTotalUsedExpiration(t *testing.T) {
-	exp := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
-	infos := []types.LicenseManagerLicenseInfo{{
-		Name:     "vSphere 8 Enterprise Plus",
-		Total:    512,
-		Used:     420,
-		CostUnit: "cpuPackage",
-		Properties: []types.KeyAnyValue{
-			{Key: "expirationDate", Value: exp},
-		},
-	}}
-	sv := view("vcsa01", infos)
-	if s, ok := find(sv, "license_seats_total"); !ok || s.value != 512 || s.unit != "cpuPackage" {
-		t.Fatalf("seats_total wrong: %+v ok=%v", s, ok)
-	}
-	if s, ok := find(sv, "license_seats_used"); !ok || s.value != 420 {
-		t.Fatalf("seats_used wrong: %+v ok=%v", s, ok)
-	}
-	if s, ok := find(sv, "license_expiration_timestamp_seconds"); !ok || s.value != float64(exp.Unix()) {
-		t.Fatalf("expiration wrong: %+v ok=%v", s, ok)
-	}
+ exp := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+ infos := []types.LicenseManagerLicenseInfo{{
+  Name:     "vSphere 8 Enterprise Plus",
+  Total:    512,
+  Used:     420,
+  CostUnit: "cpuPackage",
+  Properties: []types.KeyAnyValue{
+   {Key: "expirationDate", Value: exp},
+  },
+ }}
+ sv := view("vcsa01", infos)
+ if s, ok := find(sv, "license_seats_total"); !ok || s.value != 512 || s.unit != "cpuPackage" {
+  t.Fatalf("seats_total wrong: %+v ok=%v", s, ok)
+ }
+ if s, ok := find(sv, "license_seats_used"); !ok || s.value != 420 {
+  t.Fatalf("seats_used wrong: %+v ok=%v", s, ok)
+ }
+ if s, ok := find(sv, "license_expiration_timestamp_seconds"); !ok || s.value != float64(exp.Unix()) {
+  t.Fatalf("expiration wrong: %+v ok=%v", s, ok)
+ }
 }
 
 func TestUnlimitedLicenseOmitsTotal(t *testing.T) {
-	infos := []types.LicenseManagerLicenseInfo{{
-		Name:     "Evaluation Mode",
-		Total:    0, // unlimited
-		Used:     3,
-		CostUnit: "cpuPackage",
-	}}
-	sv := view("vcsa01", infos)
-	if _, ok := find(sv, "license_seats_total"); ok {
-		t.Fatal("unlimited license must omit seats_total")
-	}
-	if s, ok := find(sv, "license_seats_used"); !ok || s.value != 3 {
-		t.Fatalf("seats_used wrong: %+v ok=%v", s, ok)
-	}
+ infos := []types.LicenseManagerLicenseInfo{{
+  Name:     "Evaluation Mode",
+  Total:    0, // unlimited
+  Used:     3,
+  CostUnit: "cpuPackage",
+ }}
+ sv := view("vcsa01", infos)
+ if _, ok := find(sv, "license_seats_total"); ok {
+  t.Fatal("unlimited license must omit seats_total")
+ }
+ if s, ok := find(sv, "license_seats_used"); !ok || s.value != 3 {
+  t.Fatalf("seats_used wrong: %+v ok=%v", s, ok)
+ }
 }
 ```
 
@@ -1392,14 +1397,15 @@ Expected: FAIL — `licensesToSamples` undefined.
 - [ ] **Step 4: Write the pure parse implementation**
 
 Create `internal/vmware/parse.go`:
+
 ```go
 package vmware
 
 import (
-	"time"
+ "time"
 
-	"github.com/fjacquet/licenses_exporter/internal/license"
-	"github.com/vmware/govmomi/vim25/types"
+ "github.com/fjacquet/licenses_exporter/internal/license"
+ "github.com/vmware/govmomi/vim25/types"
 )
 
 const vendor = "vmware"
@@ -1407,35 +1413,35 @@ const vendor = "vmware"
 // licensesToSamples maps vSphere LicenseManager entries to license samples.
 // Unlimited licenses (Total <= 0) omit seats_total (absent-not-zero).
 func licensesToSamples(instance string, infos []types.LicenseManagerLicenseInfo) []license.Sample {
-	var out []license.Sample
-	for _, info := range infos {
-		unit := info.CostUnit
-		if unit == "" {
-			unit = "unit"
-		}
-		product := info.Name
-		if info.Total > 0 {
-			out = append(out, license.SeatSample(license.MetricSeatsTotal, vendor, product, unit, instance, float64(info.Total)))
-		}
-		out = append(out, license.SeatSample(license.MetricSeatsUsed, vendor, product, unit, instance, float64(info.Used)))
-		if exp, ok := expiration(info.Properties); ok {
-			out = append(out, license.ExpirationSample(vendor, product, instance, float64(exp.Unix())))
-		}
-	}
-	return out
+ var out []license.Sample
+ for _, info := range infos {
+  unit := info.CostUnit
+  if unit == "" {
+   unit = "unit"
+  }
+  product := info.Name
+  if info.Total > 0 {
+   out = append(out, license.SeatSample(license.MetricSeatsTotal, vendor, product, unit, instance, float64(info.Total)))
+  }
+  out = append(out, license.SeatSample(license.MetricSeatsUsed, vendor, product, unit, instance, float64(info.Used)))
+  if exp, ok := expiration(info.Properties); ok {
+   out = append(out, license.ExpirationSample(vendor, product, instance, float64(exp.Unix())))
+  }
+ }
+ return out
 }
 
 // expiration extracts the expirationDate property; absent for perpetual licenses.
 func expiration(props []types.KeyAnyValue) (time.Time, bool) {
-	for _, p := range props {
-		if p.Key != "expirationDate" {
-			continue
-		}
-		if t, ok := p.Value.(time.Time); ok {
-			return t, true
-		}
-	}
-	return time.Time{}, false
+ for _, p := range props {
+  if p.Key != "expirationDate" {
+   continue
+  }
+  if t, ok := p.Value.(time.Time); ok {
+   return t, true
+  }
+ }
+ return time.Time{}, false
 }
 ```
 
@@ -1447,26 +1453,27 @@ Expected: PASS.
 - [ ] **Step 6: Write the Source and NewSources**
 
 Create `internal/vmware/source.go`:
+
 ```go
 package vmware
 
 import (
-	"context"
-	"fmt"
-	"net/url"
+ "context"
+ "fmt"
+ "net/url"
 
-	"github.com/fjacquet/licenses_exporter/internal/license"
-	"github.com/vmware/govmomi"
-	vlicense "github.com/vmware/govmomi/license"
-	"github.com/vmware/govmomi/vim25/soap"
+ "github.com/fjacquet/licenses_exporter/internal/license"
+ "github.com/vmware/govmomi"
+ vlicense "github.com/vmware/govmomi/license"
+ "github.com/vmware/govmomi/vim25/soap"
 )
 
 type source struct {
-	instance string
-	host     string
-	username string
-	password string
-	insecure bool
+ instance string
+ host     string
+ username string
+ password string
+ insecure bool
 }
 
 func (s *source) Vendor() string   { return vendor }
@@ -1476,118 +1483,122 @@ func (s *source) Instance() string { return s.instance }
 // (design spec §6). Logout uses a background context so it runs even if ctx
 // was canceled mid-cycle.
 func (s *source) Collect(ctx context.Context) ([]license.Sample, error) {
-	u, err := soap.ParseURL(s.host)
-	if err != nil {
-		return nil, fmt.Errorf("parse vcenter url: %w", err)
-	}
-	u.User = url.UserPassword(s.username, s.password)
+ u, err := soap.ParseURL(s.host)
+ if err != nil {
+  return nil, fmt.Errorf("parse vcenter url: %w", err)
+ }
+ u.User = url.UserPassword(s.username, s.password)
 
-	c, err := govmomi.NewClient(ctx, u, s.insecure)
-	if err != nil {
-		return nil, fmt.Errorf("vcenter login: %w", err)
-	}
-	defer func() { _ = c.Logout(context.Background()) }()
+ c, err := govmomi.NewClient(ctx, u, s.insecure)
+ if err != nil {
+  return nil, fmt.Errorf("vcenter login: %w", err)
+ }
+ defer func() { _ = c.Logout(context.Background()) }()
 
-	infos, err := vlicense.NewManager(c.Client).List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list licenses: %w", err)
-	}
-	return licensesToSamples(s.instance, infos), nil
+ infos, err := vlicense.NewManager(c.Client).List(ctx)
+ if err != nil {
+  return nil, fmt.Errorf("list licenses: %w", err)
+ }
+ return licensesToSamples(s.instance, infos), nil
 }
 ```
 
 Create `internal/vmware/vmware.go`:
+
 ```go
 package vmware
 
 import (
-	"fmt"
-	"os"
-	"strings"
+ "fmt"
+ "os"
+ "strings"
 
-	"github.com/fjacquet/licenses_exporter/internal/config"
-	"github.com/fjacquet/licenses_exporter/internal/license"
+ "github.com/fjacquet/licenses_exporter/internal/config"
+ "github.com/fjacquet/licenses_exporter/internal/license"
 )
 
 // NewSources builds one stateless Source per configured vCenter.
 func NewSources(cfg config.VMwareRaw) ([]license.Source, error) {
-	if !cfg.Enabled {
-		return nil, nil
-	}
-	var out []license.Source
-	for _, v := range cfg.VCenters {
-		pw, err := resolveSecret(v.Password, v.PasswordFile)
-		if err != nil {
-			return nil, fmt.Errorf("vcenter %q: %w", v.Instance, err)
-		}
-		out = append(out, &source{
-			instance: v.Instance,
-			host:     v.Host,
-			username: v.Username,
-			password: pw,
-			insecure: v.InsecureSkipVerify,
-		})
-	}
-	return out, nil
+ if !cfg.Enabled {
+  return nil, nil
+ }
+ var out []license.Source
+ for _, v := range cfg.VCenters {
+  pw, err := resolveSecret(v.Password, v.PasswordFile)
+  if err != nil {
+   return nil, fmt.Errorf("vcenter %q: %w", v.Instance, err)
+  }
+  out = append(out, &source{
+   instance: v.Instance,
+   host:     v.Host,
+   username: v.Username,
+   password: pw,
+   insecure: v.InsecureSkipVerify,
+  })
+ }
+ return out, nil
 }
 
 func resolveSecret(inline, file string) (string, error) {
-	if file != "" {
-		b, err := os.ReadFile(file)
-		if err != nil {
-			return "", fmt.Errorf("read secret file: %w", err)
-		}
-		return strings.TrimSpace(string(b)), nil
-	}
-	return inline, nil
+ if file != "" {
+  b, err := os.ReadFile(file)
+  if err != nil {
+   return "", fmt.Errorf("read secret file: %w", err)
+  }
+  return strings.TrimSpace(string(b)), nil
+ }
+ return inline, nil
 }
 ```
 
 - [ ] **Step 7: Write the vcsim integration (smoke) test**
 
 Create `internal/vmware/source_test.go`:
+
 ```go
 package vmware
 
 import (
-	"context"
-	"testing"
+ "context"
+ "testing"
 
-	"github.com/vmware/govmomi/simulator"
+ "github.com/vmware/govmomi/simulator"
 )
 
 // vcsim's default license manager returns the eval license (Total=0). This is a
 // wiring smoke test: login → List → logout must succeed, and the unlimited eval
 // license must never yield a non-positive seats_total.
 func TestCollectAgainstVcsim(t *testing.T) {
-	model := simulator.VPX()
-	if err := model.Create(); err != nil {
-		t.Fatal(err)
-	}
-	defer model.Remove()
-	server := model.Service.NewServer()
-	defer server.Close()
+ model := simulator.VPX()
+ if err := model.Create(); err != nil {
+  t.Fatal(err)
+ }
+ defer model.Remove()
+ server := model.Service.NewServer()
+ defer server.Close()
 
-	src := &source{instance: "vcsim", host: server.URL.String(), username: "user", password: "pass", insecure: true}
-	samples, err := src.Collect(context.Background())
-	if err != nil {
-		t.Fatalf("Collect against vcsim: %v", err)
-	}
-	for _, s := range samples {
-		if s.Name == "license_seats_total" && s.Value <= 0 {
-			t.Fatalf("emitted non-positive seats_total %v (unlimited must be omitted)", s.Value)
-		}
-	}
+ src := &source{instance: "vcsim", host: server.URL.String(), username: "user", password: "pass", insecure: true}
+ samples, err := src.Collect(context.Background())
+ if err != nil {
+  t.Fatalf("Collect against vcsim: %v", err)
+ }
+ for _, s := range samples {
+  if s.Name == "license_seats_total" && s.Value <= 0 {
+   t.Fatalf("emitted non-positive seats_total %v (unlimited must be omitted)", s.Value)
+  }
+ }
 }
 ```
 
 - [ ] **Step 8: Run all vmware tests**
 
 Run:
+
 ```bash
 go mod tidy
 go test ./internal/vmware/ -race -v
 ```
+
 Expected: PASS (parse + vcsim smoke). If `Collect` fails to compile because `Used` is `*int32`, change `float64(info.Used)` to a nil-guarded helper and re-run.
 
 - [ ] **Step 9: Commit**
@@ -1602,10 +1613,12 @@ git commit -m "feat(vmware): govmomi stateless license collector, unlimited-awar
 ## Task 8: Microsoft 365 collector (msgraph-sdk-go, paginated)
 
 **Files:**
+
 - Create: `internal/m365/parse.go`, `internal/m365/source.go`, `internal/m365/graph.go`, `internal/m365/m365.go`
 - Test: `internal/m365/parse_test.go`, `internal/m365/source_test.go`
 
 **Interfaces:**
+
 - Consumes: `license.Sample`, `license.Source`, `license.SeatSample` (Tasks 1–3); `config.M365Raw`, `config.TenantRaw` (Task 6).
 - Produces:
   - `func skusToSamples(instance string, skus []models.SubscribedSkuable) []license.Sample` — pure; `unit="users"`; nil-guards every getter (absent-not-zero); no expiration series.
@@ -1617,6 +1630,7 @@ git commit -m "feat(vmware): govmomi stateless license collector, unlimited-awar
 - [ ] **Step 1: Add the dependencies**
 
 Run:
+
 ```bash
 go get github.com/microsoftgraph/msgraph-sdk-go github.com/microsoftgraph/msgraph-sdk-go-core github.com/Azure/azure-sdk-for-go/sdk/azidentity
 go mod tidy
@@ -1625,62 +1639,63 @@ go mod tidy
 - [ ] **Step 2: Write the failing parse test**
 
 Create `internal/m365/parse_test.go`:
+
 ```go
 package m365
 
 import (
-	"testing"
+ "testing"
 
-	"github.com/microsoftgraph/msgraph-sdk-go/models"
+ "github.com/microsoftgraph/msgraph-sdk-go/models"
 )
 
 func ptr[T any](v T) *T { return &v }
 
 func TestSkusToSamples(t *testing.T) {
-	sku := models.NewSubscribedSku()
-	sku.SetSkuPartNumber(ptr("SPE_E5"))
-	sku.SetConsumedUnits(ptr(int32(242)))
-	detail := models.NewLicenseUnitsDetail()
-	detail.SetEnabled(ptr(int32(250)))
-	sku.SetPrepaidUnits(detail)
+ sku := models.NewSubscribedSku()
+ sku.SetSkuPartNumber(ptr("SPE_E5"))
+ sku.SetConsumedUnits(ptr(int32(242)))
+ detail := models.NewLicenseUnitsDetail()
+ detail.SetEnabled(ptr(int32(250)))
+ sku.SetPrepaidUnits(detail)
 
-	samples := skusToSamples("tenant-a", []models.SubscribedSkuable{sku})
+ samples := skusToSamples("tenant-a", []models.SubscribedSkuable{sku})
 
-	var gotTotal, gotUsed float64
-	var product, unit string
-	for _, s := range samples {
-		for _, l := range s.Labels {
-			if l.Key == "product" {
-				product = l.Value
-			}
-			if l.Key == "unit" {
-				unit = l.Value
-			}
-		}
-		switch s.Name {
-		case "license_seats_total":
-			gotTotal = s.Value
-		case "license_seats_used":
-			gotUsed = s.Value
-		}
-	}
-	if gotTotal != 250 || gotUsed != 242 {
-		t.Fatalf("total=%v used=%v, want 250/242", gotTotal, gotUsed)
-	}
-	if product != "SPE_E5" || unit != "users" {
-		t.Fatalf("product=%q unit=%q", product, unit)
-	}
+ var gotTotal, gotUsed float64
+ var product, unit string
+ for _, s := range samples {
+  for _, l := range s.Labels {
+   if l.Key == "product" {
+    product = l.Value
+   }
+   if l.Key == "unit" {
+    unit = l.Value
+   }
+  }
+  switch s.Name {
+  case "license_seats_total":
+   gotTotal = s.Value
+  case "license_seats_used":
+   gotUsed = s.Value
+  }
+ }
+ if gotTotal != 250 || gotUsed != 242 {
+  t.Fatalf("total=%v used=%v, want 250/242", gotTotal, gotUsed)
+ }
+ if product != "SPE_E5" || unit != "users" {
+  t.Fatalf("product=%q unit=%q", product, unit)
+ }
 }
 
 func TestSkusToSamplesNilGuards(t *testing.T) {
-	sku := models.NewSubscribedSku() // all fields nil
-	samples := skusToSamples("tenant-a", []models.SubscribedSkuable{sku})
-	// No panics; with no counts, no seats emitted (absent-not-zero).
-	for _, s := range samples {
-		if s.Name == "license_seats_total" || s.Name == "license_seats_used" {
-			t.Fatalf("emitted %s from a nil-count SKU", s.Name)
-		}
-	}
+ sku := models.NewSubscribedSku() // all fields nil
+ samples := skusToSamples("tenant-a", []models.SubscribedSkuable{sku})
+ // No panics; with no counts, no seats emitted (absent-not-zero).
+ for _, s := range samples {
+  if s.Name == "license_seats_total" || s.Name == "license_seats_used" {
+   t.Fatalf("emitted %s from a nil-count SKU", s.Name)
+  }
+ }
 }
 ```
 
@@ -1692,41 +1707,42 @@ Expected: FAIL — `skusToSamples` undefined.
 - [ ] **Step 4: Write the pure parse implementation**
 
 Create `internal/m365/parse.go`:
+
 ```go
 package m365
 
 import (
-	"github.com/fjacquet/licenses_exporter/internal/license"
-	"github.com/microsoftgraph/msgraph-sdk-go/models"
+ "github.com/fjacquet/licenses_exporter/internal/license"
+ "github.com/microsoftgraph/msgraph-sdk-go/models"
 )
 
 const (
-	vendor = "microsoft"
-	unit   = "users"
+ vendor = "microsoft"
+ unit   = "users"
 )
 
 // skusToSamples maps subscribedSkus to license samples. Every getter is
 // nil-guarded: a missing count yields an absent sample, never a fake 0.
 func skusToSamples(instance string, skus []models.SubscribedSkuable) []license.Sample {
-	var out []license.Sample
-	for _, sku := range skus {
-		if sku == nil {
-			continue
-		}
-		product := ""
-		if p := sku.GetSkuPartNumber(); p != nil {
-			product = *p
-		}
-		if pre := sku.GetPrepaidUnits(); pre != nil {
-			if enabled := pre.GetEnabled(); enabled != nil {
-				out = append(out, license.SeatSample(license.MetricSeatsTotal, vendor, product, unit, instance, float64(*enabled)))
-			}
-		}
-		if consumed := sku.GetConsumedUnits(); consumed != nil {
-			out = append(out, license.SeatSample(license.MetricSeatsUsed, vendor, product, unit, instance, float64(*consumed)))
-		}
-	}
-	return out
+ var out []license.Sample
+ for _, sku := range skus {
+  if sku == nil {
+   continue
+  }
+  product := ""
+  if p := sku.GetSkuPartNumber(); p != nil {
+   product = *p
+  }
+  if pre := sku.GetPrepaidUnits(); pre != nil {
+   if enabled := pre.GetEnabled(); enabled != nil {
+    out = append(out, license.SeatSample(license.MetricSeatsTotal, vendor, product, unit, instance, float64(*enabled)))
+   }
+  }
+  if consumed := sku.GetConsumedUnits(); consumed != nil {
+   out = append(out, license.SeatSample(license.MetricSeatsUsed, vendor, product, unit, instance, float64(*consumed)))
+  }
+ }
+ return out
 }
 ```
 
@@ -1738,137 +1754,142 @@ Expected: PASS.
 - [ ] **Step 6: Write the Source over the seam + a fake-lister test**
 
 Create `internal/m365/source.go`:
+
 ```go
 package m365
 
 import (
-	"context"
+ "context"
 
-	"github.com/fjacquet/licenses_exporter/internal/license"
-	"github.com/microsoftgraph/msgraph-sdk-go/models"
+ "github.com/fjacquet/licenses_exporter/internal/license"
+ "github.com/microsoftgraph/msgraph-sdk-go/models"
 )
 
 // skuLister isolates the Graph SDK so the Source is unit-testable.
 type skuLister interface {
-	listSkus(ctx context.Context) ([]models.SubscribedSkuable, error)
+ listSkus(ctx context.Context) ([]models.SubscribedSkuable, error)
 }
 
 type source struct {
-	instance string
-	lister   skuLister
+ instance string
+ lister   skuLister
 }
 
 func (s *source) Vendor() string   { return vendor }
 func (s *source) Instance() string { return s.instance }
 
 func (s *source) Collect(ctx context.Context) ([]license.Sample, error) {
-	skus, err := s.lister.listSkus(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return skusToSamples(s.instance, skus), nil
+ skus, err := s.lister.listSkus(ctx)
+ if err != nil {
+  return nil, err
+ }
+ return skusToSamples(s.instance, skus), nil
 }
 ```
 
 Create `internal/m365/source_test.go`:
+
 ```go
 package m365
 
 import (
-	"context"
-	"testing"
+ "context"
+ "testing"
 
-	"github.com/microsoftgraph/msgraph-sdk-go/models"
+ "github.com/microsoftgraph/msgraph-sdk-go/models"
 )
 
 type fakeLister struct {
-	skus []models.SubscribedSkuable
-	err  error
+ skus []models.SubscribedSkuable
+ err  error
 }
 
 func (f fakeLister) listSkus(context.Context) ([]models.SubscribedSkuable, error) {
-	return f.skus, f.err
+ return f.skus, f.err
 }
 
 func TestSourceCollectUsesLister(t *testing.T) {
-	sku := models.NewSubscribedSku()
-	sku.SetSkuPartNumber(ptr("SPB"))
-	sku.SetConsumedUnits(ptr(int32(5)))
-	src := &source{instance: "tenant-a", lister: fakeLister{skus: []models.SubscribedSkuable{sku}}}
+ sku := models.NewSubscribedSku()
+ sku.SetSkuPartNumber(ptr("SPB"))
+ sku.SetConsumedUnits(ptr(int32(5)))
+ src := &source{instance: "tenant-a", lister: fakeLister{skus: []models.SubscribedSkuable{sku}}}
 
-	samples, err := src.Collect(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, s := range samples {
-		if s.Name == "license_seats_used" && s.Value == 5 {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("expected seats_used=5 from lister SKUs")
-	}
+ samples, err := src.Collect(context.Background())
+ if err != nil {
+  t.Fatal(err)
+ }
+ found := false
+ for _, s := range samples {
+  if s.Name == "license_seats_used" && s.Value == 5 {
+   found = true
+  }
+ }
+ if !found {
+  t.Fatal("expected seats_used=5 from lister SKUs")
+ }
 }
 ```
+
 Run: `go test ./internal/m365/ -run TestSourceCollect -v`
 Expected: PASS.
 
 - [ ] **Step 7: Write the real Graph lister + NewSources**
 
 Create `internal/m365/graph.go`:
+
 ```go
 package m365
 
 import (
-	"context"
+ "context"
 
-	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
-	msgraphcore "github.com/microsoftgraph/msgraph-sdk-go-core"
-	"github.com/microsoftgraph/msgraph-sdk-go/models"
+ msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
+ msgraphcore "github.com/microsoftgraph/msgraph-sdk-go-core"
+ "github.com/microsoftgraph/msgraph-sdk-go/models"
 )
 
 // graphSkuLister lists subscribedSkus via the Graph SDK, following @odata.nextLink.
 type graphSkuLister struct {
-	client *msgraphsdk.GraphServiceClient
+ client *msgraphsdk.GraphServiceClient
 }
 
 func (g graphSkuLister) listSkus(ctx context.Context) ([]models.SubscribedSkuable, error) {
-	page, err := g.client.SubscribedSkus().Get(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	iterator, err := msgraphcore.NewPageIterator[models.SubscribedSkuable](
-		page, g.client.GetAdapter(),
-		models.CreateSubscribedSkuCollectionResponseFromDiscriminatorValue,
-	)
-	if err != nil {
-		return nil, err
-	}
-	var out []models.SubscribedSkuable
-	err = iterator.Iterate(ctx, func(item models.SubscribedSkuable) bool {
-		if item != nil {
-			out = append(out, item)
-		}
-		return true // keep paging
-	})
-	return out, err
+ page, err := g.client.SubscribedSkus().Get(ctx, nil)
+ if err != nil {
+  return nil, err
+ }
+ iterator, err := msgraphcore.NewPageIterator[models.SubscribedSkuable](
+  page, g.client.GetAdapter(),
+  models.CreateSubscribedSkuCollectionResponseFromDiscriminatorValue,
+ )
+ if err != nil {
+  return nil, err
+ }
+ var out []models.SubscribedSkuable
+ err = iterator.Iterate(ctx, func(item models.SubscribedSkuable) bool {
+  if item != nil {
+   out = append(out, item)
+  }
+  return true // keep paging
+ })
+ return out, err
 }
 ```
 
 Create `internal/m365/m365.go`:
+
 ```go
 package m365
 
 import (
-	"fmt"
-	"os"
-	"strings"
+ "fmt"
+ "os"
+ "strings"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/fjacquet/licenses_exporter/internal/config"
-	"github.com/fjacquet/licenses_exporter/internal/license"
-	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
+ "github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+ "github.com/fjacquet/licenses_exporter/internal/config"
+ "github.com/fjacquet/licenses_exporter/internal/license"
+ msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
 )
 
 // graphScopes requests the app-only default scope; the app registration must be
@@ -1877,37 +1898,37 @@ var graphScopes = []string{"https://graph.microsoft.com/.default"}
 
 // NewSources builds one Source per configured tenant.
 func NewSources(cfg config.M365Raw) ([]license.Source, error) {
-	if !cfg.Enabled {
-		return nil, nil
-	}
-	var out []license.Source
-	for _, t := range cfg.Tenants {
-		secret, err := resolveSecret(t.ClientSecret, t.ClientSecretFile)
-		if err != nil {
-			return nil, fmt.Errorf("m365 tenant %q: %w", t.Instance, err)
-		}
-		cred, err := azidentity.NewClientSecretCredential(t.TenantID, t.ClientID, secret, nil)
-		if err != nil {
-			return nil, fmt.Errorf("m365 tenant %q credential: %w", t.Instance, err)
-		}
-		client, err := msgraphsdk.NewGraphServiceClientWithCredentials(cred, graphScopes)
-		if err != nil {
-			return nil, fmt.Errorf("m365 tenant %q client: %w", t.Instance, err)
-		}
-		out = append(out, &source{instance: t.Instance, lister: graphSkuLister{client: client}})
-	}
-	return out, nil
+ if !cfg.Enabled {
+  return nil, nil
+ }
+ var out []license.Source
+ for _, t := range cfg.Tenants {
+  secret, err := resolveSecret(t.ClientSecret, t.ClientSecretFile)
+  if err != nil {
+   return nil, fmt.Errorf("m365 tenant %q: %w", t.Instance, err)
+  }
+  cred, err := azidentity.NewClientSecretCredential(t.TenantID, t.ClientID, secret, nil)
+  if err != nil {
+   return nil, fmt.Errorf("m365 tenant %q credential: %w", t.Instance, err)
+  }
+  client, err := msgraphsdk.NewGraphServiceClientWithCredentials(cred, graphScopes)
+  if err != nil {
+   return nil, fmt.Errorf("m365 tenant %q client: %w", t.Instance, err)
+  }
+  out = append(out, &source{instance: t.Instance, lister: graphSkuLister{client: client}})
+ }
+ return out, nil
 }
 
 func resolveSecret(inline, file string) (string, error) {
-	if file != "" {
-		b, err := os.ReadFile(file)
-		if err != nil {
-			return "", fmt.Errorf("read secret file: %w", err)
-		}
-		return strings.TrimSpace(string(b)), nil
-	}
-	return inline, nil
+ if file != "" {
+  b, err := os.ReadFile(file)
+  if err != nil {
+   return "", fmt.Errorf("read secret file: %w", err)
+  }
+  return strings.TrimSpace(string(b)), nil
+ }
+ return inline, nil
 }
 ```
 
@@ -1916,11 +1937,13 @@ func resolveSecret(inline, file string) (string, error) {
 - [ ] **Step 8: Run all m365 tests + build**
 
 Run:
+
 ```bash
 go mod tidy
 go build ./internal/m365/
 go test ./internal/m365/ -race -v
 ```
+
 Expected: build OK; parse + source tests PASS.
 
 - [ ] **Step 9: Commit**
@@ -1935,10 +1958,12 @@ git commit -m "feat(m365): msgraph-sdk-go subscribedSkus collector (paginated) b
 ## Task 9: main.go wiring (server-before-collect, /health, reload, CLI flags)
 
 **Files:**
+
 - Create: `internal/app/app.go`, `internal/app/health.go`, `main.go`
 - Test: `internal/app/app_test.go`, `internal/app/health_test.go`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces:
   - `func BuildSources(cfg *config.Config) ([]license.Source, error)` — concatenates vmware + m365 sources.
@@ -1948,57 +1973,59 @@ git commit -m "feat(m365): msgraph-sdk-go subscribedSkus collector (paginated) b
 - [ ] **Step 1: Write the failing tests**
 
 Create `internal/app/health_test.go`:
+
 ```go
 package app
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
+ "net/http"
+ "net/http/httptest"
+ "testing"
 )
 
 func TestHealthStartingThenOk(t *testing.T) {
-	h := &Health{}
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("pre-ready code = %d, want 503", rec.Code)
-	}
-	h.SetReady()
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("post-ready code = %d, want 200", rec.Code)
-	}
+ h := &Health{}
+ rec := httptest.NewRecorder()
+ h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+ if rec.Code != http.StatusServiceUnavailable {
+  t.Fatalf("pre-ready code = %d, want 503", rec.Code)
+ }
+ h.SetReady()
+ rec = httptest.NewRecorder()
+ h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+ if rec.Code != http.StatusOK {
+  t.Fatalf("post-ready code = %d, want 200", rec.Code)
+ }
 }
 ```
 
 Create `internal/app/app_test.go`:
+
 ```go
 package app
 
 import (
-	"testing"
-	"time"
+ "testing"
+ "time"
 
-	"github.com/fjacquet/licenses_exporter/internal/config"
+ "github.com/fjacquet/licenses_exporter/internal/config"
 )
 
 func TestBuildSourcesRespectsEnabledFlags(t *testing.T) {
-	cfg := &config.Config{
-		Collection: config.CollectionConfig{Interval: time.Hour},
-		Collectors: config.CollectorsConfig{
-			VMware: config.VMwareRaw{Enabled: true, VCenters: []config.VCenterRaw{{Instance: "v1", Host: "https://vc/sdk", Username: "u", Password: "p"}}},
-			M365:   config.M365Raw{Enabled: false},
-		},
-	}
-	sources, err := BuildSources(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(sources) != 1 || sources[0].Vendor() != "vmware" {
-		t.Fatalf("expected 1 vmware source, got %d", len(sources))
-	}
+ cfg := &config.Config{
+  Collection: config.CollectionConfig{Interval: time.Hour},
+  Collectors: config.CollectorsConfig{
+   VMware: config.VMwareRaw{Enabled: true, VCenters: []config.VCenterRaw{{Instance: "v1", Host: "https://vc/sdk", Username: "u", Password: "p"}}},
+   M365:   config.M365Raw{Enabled: false},
+  },
+ }
+ sources, err := BuildSources(cfg)
+ if err != nil {
+  t.Fatal(err)
+ }
+ if len(sources) != 1 || sources[0].Vendor() != "vmware" {
+  t.Fatalf("expected 1 vmware source, got %d", len(sources))
+ }
 }
 ```
 
@@ -2010,255 +2037,260 @@ Expected: FAIL — `Health` / `BuildSources` undefined.
 - [ ] **Step 3: Write health + BuildSources**
 
 Create `internal/app/health.go`:
+
 ```go
 package app
 
 import (
-	"net/http"
-	"sync/atomic"
+ "net/http"
+ "sync/atomic"
 )
 
 // Health reports 503 "starting" until the first collection cycle completes,
 // then 200 "ok" (design spec §2).
 type Health struct {
-	ready atomic.Bool
+ ready atomic.Bool
 }
 
 func (h *Health) SetReady() { h.ready.Store(true) }
 
 func (h *Health) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
-	if h.ready.Load() {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-		return
-	}
-	w.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = w.Write([]byte("starting"))
+ if h.ready.Load() {
+  w.WriteHeader(http.StatusOK)
+  _, _ = w.Write([]byte("ok"))
+  return
+ }
+ w.WriteHeader(http.StatusServiceUnavailable)
+ _, _ = w.Write([]byte("starting"))
 }
 ```
 
 Create `internal/app/app.go`:
+
 ```go
 // Package app wires config, collectors, the snapshot store, and the two export
 // paths into a running exporter.
 package app
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"runtime"
-	"sort"
-	"time"
+ "context"
+ "fmt"
+ "net/http"
+ "runtime"
+ "sort"
+ "time"
 
-	"github.com/fjacquet/licenses_exporter/internal/config"
-	"github.com/fjacquet/licenses_exporter/internal/license"
-	"github.com/fjacquet/licenses_exporter/internal/m365"
-	"github.com/fjacquet/licenses_exporter/internal/vmware"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+ "github.com/fjacquet/licenses_exporter/internal/config"
+ "github.com/fjacquet/licenses_exporter/internal/license"
+ "github.com/fjacquet/licenses_exporter/internal/m365"
+ "github.com/fjacquet/licenses_exporter/internal/vmware"
+ "github.com/prometheus/client_golang/prometheus"
+ "github.com/prometheus/client_golang/prometheus/promhttp"
+ "github.com/sirupsen/logrus"
 )
 
 // BuildSources concatenates every enabled collector's sources.
 func BuildSources(cfg *config.Config) ([]license.Source, error) {
-	var sources []license.Source
-	vm, err := vmware.NewSources(cfg.Collectors.VMware)
-	if err != nil {
-		return nil, err
-	}
-	sources = append(sources, vm...)
-	ms, err := m365.NewSources(cfg.Collectors.M365)
-	if err != nil {
-		return nil, err
-	}
-	sources = append(sources, ms...)
-	return sources, nil
+ var sources []license.Source
+ vm, err := vmware.NewSources(cfg.Collectors.VMware)
+ if err != nil {
+  return nil, err
+ }
+ sources = append(sources, vm...)
+ ms, err := m365.NewSources(cfg.Collectors.M365)
+ if err != nil {
+  return nil, err
+ }
+ sources = append(sources, ms...)
+ return sources, nil
 }
 
 // Run wires and starts the exporter. If once is true, it runs a single collection
 // cycle and returns (used by --once); otherwise it serves until ctx is canceled.
 func Run(ctx context.Context, cfg *config.Config, version, addr string, once bool) error {
-	sources, err := BuildSources(cfg)
-	if err != nil {
-		return err
-	}
-	store := license.NewSnapshotStore(license.ColdStartSnapshot(version, runtime.Version()))
-	collector := license.NewCollector(sources, store, version, runtime.Version(), 0, time.Now)
+ sources, err := BuildSources(cfg)
+ if err != nil {
+  return err
+ }
+ store := license.NewSnapshotStore(license.ColdStartSnapshot(version, runtime.Version()))
+ collector := license.NewCollector(sources, store, version, runtime.Version(), 0, time.Now)
 
-	if once {
-		snap := collector.CollectOnce(ctx)
-		dumpSamples(snap)
-		return nil
-	}
+ if once {
+  snap := collector.CollectOnce(ctx)
+  dumpSamples(snap)
+  return nil
+ }
 
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(license.NewPromCollector(store))
+ reg := prometheus.NewRegistry()
+ reg.MustRegister(license.NewPromCollector(store))
 
-	health := &Health{}
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-	mux.Handle("/health", health)
+ health := &Health{}
+ mux := http.NewServeMux()
+ mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+ mux.Handle("/health", health)
 
-	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-	go func() {
-		logrus.WithField("addr", addr).Info("serving /metrics and /health")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logrus.WithError(err).Fatal("http server failed")
-		}
-	}()
+ srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+ go func() {
+  logrus.WithField("addr", addr).Info("serving /metrics and /health")
+  if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+   logrus.WithError(err).Fatal("http server failed")
+  }
+ }()
 
-	// First cycle, then mark ready; then loop until ctx done.
-	collector.CollectOnce(ctx)
-	health.SetReady()
-	go collector.Run(ctx, cfg.Collection.Interval)
+ // First cycle, then mark ready; then loop until ctx done.
+ collector.CollectOnce(ctx)
+ health.SetReady()
+ go collector.Run(ctx, cfg.Collection.Interval)
 
-	<-ctx.Done()
-	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return srv.Shutdown(shutCtx)
+ <-ctx.Done()
+ shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+ defer cancel()
+ return srv.Shutdown(shutCtx)
 }
 
 // dumpSamples prints every sample sorted (exposition style) for --once --debug.
 func dumpSamples(snap *license.Snapshot) {
-	lines := make([]string, 0, len(snap.Samples))
-	for _, s := range snap.Samples {
-		lines = append(lines, fmt.Sprintf("%s %g", s.Name, s.Value))
-	}
-	sort.Strings(lines)
-	for _, l := range lines {
-		fmt.Println(l)
-	}
+ lines := make([]string, 0, len(snap.Samples))
+ for _, s := range snap.Samples {
+  lines = append(lines, fmt.Sprintf("%s %g", s.Name, s.Value))
+ }
+ sort.Strings(lines)
+ for _, l := range lines {
+  fmt.Println(l)
+ }
 }
 ```
 
 - [ ] **Step 4: Run tests**
 
 Run:
+
 ```bash
 go get github.com/prometheus/client_golang/prometheus/promhttp
 go mod tidy
 go test ./internal/app/ -v
 ```
+
 Expected: PASS.
 
 - [ ] **Step 5: Write main.go (cobra CLI + SIGHUP/file-watch reload)**
 
 Create `main.go`:
+
 ```go
 package main
 
 import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
+ "context"
+ "os"
+ "os/signal"
+ "syscall"
 
-	"github.com/fjacquet/licenses_exporter/internal/app"
-	"github.com/fjacquet/licenses_exporter/internal/config"
-	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
+ "github.com/fjacquet/licenses_exporter/internal/app"
+ "github.com/fjacquet/licenses_exporter/internal/config"
+ "github.com/fsnotify/fsnotify"
+ "github.com/sirupsen/logrus"
+ "github.com/spf13/cobra"
 )
 
 // version is injected via -ldflags at build time (see Makefile `make cli`).
 var version = "dev"
 
 func main() {
-	var (
-		cfgPath string
-		debug   bool
-		once    bool
-		trace   bool
-		addr    string
-	)
-	root := &cobra.Command{
-		Use:   "licenses_exporter",
-		Short: "Unified enterprise-license Prometheus + OTLP exporter",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if debug {
-				logrus.SetLevel(logrus.DebugLevel)
-			}
-			if trace {
-				logrus.Warn("--trace: both collectors use non-injectable SDKs; SDK-level tracing is intentionally not wired (would leak tokens). See docs/adr.")
-			}
-			cfg, err := config.Load(cfgPath)
-			if err != nil {
-				return err
-			}
-			if once {
-				return app.Run(context.Background(), cfg, version, addr, true)
-			}
-			return serveWithReload(cfgPath, version, addr)
-		},
-	}
-	root.Flags().StringVar(&cfgPath, "config", "config.yaml", "path to config.yaml")
-	root.Flags().StringVar(&addr, "web.listen-address", ":9105", "metrics listen address")
-	root.Flags().BoolVar(&debug, "debug", false, "debug logging")
-	root.Flags().BoolVar(&once, "once", false, "run one collection cycle and exit")
-	root.Flags().BoolVar(&trace, "trace", false, "log repo-owned API responses (SDK tracing intentionally disabled)")
-	if err := root.Execute(); err != nil {
-		logrus.WithError(err).Fatal("exporter failed")
-	}
+ var (
+  cfgPath string
+  debug   bool
+  once    bool
+  trace   bool
+  addr    string
+ )
+ root := &cobra.Command{
+  Use:   "licenses_exporter",
+  Short: "Unified enterprise-license Prometheus + OTLP exporter",
+  RunE: func(cmd *cobra.Command, _ []string) error {
+   if debug {
+    logrus.SetLevel(logrus.DebugLevel)
+   }
+   if trace {
+    logrus.Warn("--trace: both collectors use non-injectable SDKs; SDK-level tracing is intentionally not wired (would leak tokens). See docs/adr.")
+   }
+   cfg, err := config.Load(cfgPath)
+   if err != nil {
+    return err
+   }
+   if once {
+    return app.Run(context.Background(), cfg, version, addr, true)
+   }
+   return serveWithReload(cfgPath, version, addr)
+  },
+ }
+ root.Flags().StringVar(&cfgPath, "config", "config.yaml", "path to config.yaml")
+ root.Flags().StringVar(&addr, "web.listen-address", ":9105", "metrics listen address")
+ root.Flags().BoolVar(&debug, "debug", false, "debug logging")
+ root.Flags().BoolVar(&once, "once", false, "run one collection cycle and exit")
+ root.Flags().BoolVar(&trace, "trace", false, "log repo-owned API responses (SDK tracing intentionally disabled)")
+ if err := root.Execute(); err != nil {
+  logrus.WithError(err).Fatal("exporter failed")
+ }
 }
 
 // serveWithReload runs the exporter under a cancelable context and rebuilds it on
 // SIGHUP or config file change (design spec §2). A config that fails to load is
 // rejected; the running server keeps serving.
 func serveWithReload(cfgPath, version, addr string) error {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+ sigs := make(chan os.Signal, 1)
+ signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
-	watcher, _ := fsnotify.NewWatcher()
-	if watcher != nil {
-		defer watcher.Close()
-		_ = watcher.Add(cfgPath)
-	}
+ watcher, _ := fsnotify.NewWatcher()
+ if watcher != nil {
+  defer watcher.Close()
+  _ = watcher.Add(cfgPath)
+ }
 
-	for {
-		cfg, err := config.Load(cfgPath)
-		if err != nil {
-			return err // initial load failure is fatal
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
-			if err := app.Run(ctx, cfg, version, addr, false); err != nil {
-				logrus.WithError(err).Error("run cycle ended")
-			}
-		}()
+ for {
+  cfg, err := config.Load(cfgPath)
+  if err != nil {
+   return err // initial load failure is fatal
+  }
+  ctx, cancel := context.WithCancel(context.Background())
+  go func() {
+   if err := app.Run(ctx, cfg, version, addr, false); err != nil {
+    logrus.WithError(err).Error("run cycle ended")
+   }
+  }()
 
-		reload := false
-		for !reload {
-			select {
-			case sig := <-sigs:
-				if sig == syscall.SIGHUP {
-					logrus.Info("SIGHUP: reloading config")
-					reload = true
-				} else {
-					cancel()
-					return nil // SIGINT/SIGTERM: shut down
-				}
-			case ev := <-watcherEvents(watcher):
-				if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
-					logrus.WithField("file", ev.Name).Info("config changed: reloading")
-					reload = true
-				}
-			}
-		}
-		// Validate the new config BEFORE tearing down the running server.
-		if _, err := config.Load(cfgPath); err != nil {
-			logrus.WithError(err).Warn("new config invalid; keeping current running config")
-			continue
-		}
-		cancel() // tear down old; loop rebuilds
-	}
+  reload := false
+  for !reload {
+   select {
+   case sig := <-sigs:
+    if sig == syscall.SIGHUP {
+     logrus.Info("SIGHUP: reloading config")
+     reload = true
+    } else {
+     cancel()
+     return nil // SIGINT/SIGTERM: shut down
+    }
+   case ev := <-watcherEvents(watcher):
+    if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+     logrus.WithField("file", ev.Name).Info("config changed: reloading")
+     reload = true
+    }
+   }
+  }
+  // Validate the new config BEFORE tearing down the running server.
+  if _, err := config.Load(cfgPath); err != nil {
+   logrus.WithError(err).Warn("new config invalid; keeping current running config")
+   continue
+  }
+  cancel() // tear down old; loop rebuilds
+ }
 }
 
 func watcherEvents(w *fsnotify.Watcher) <-chan fsnotify.Event {
-	if w == nil {
-		return make(chan fsnotify.Event) // never fires
-	}
-	return w.Events
+ if w == nil {
+  return make(chan fsnotify.Event) // never fires
+ }
+ return w.Events
 }
 ```
 
@@ -2267,12 +2299,14 @@ func watcherEvents(w *fsnotify.Watcher) <-chan fsnotify.Event {
 - [ ] **Step 6: Build + smoke test**
 
 Run:
+
 ```bash
 go get github.com/fsnotify/fsnotify github.com/spf13/cobra
 go mod tidy
 go build -o bin/licenses_exporter .
 ./bin/licenses_exporter --help
 ```
+
 Expected: build OK; `--help` lists `--config --debug --once --trace --web.listen-address`.
 
 - [ ] **Step 7: Commit**
@@ -2287,6 +2321,7 @@ git commit -m "feat(app): main wiring — server-before-collect, /health, SIGHUP
 ## Task 10: Makefile, Dockerfile, GoReleaser, tooling
 
 **Files:**
+
 - Create: `Makefile`, `Dockerfile`, `Dockerfile.goreleaser`, `.goreleaser.yaml`, `.golangci.yml` (`.gitignore` already created — verify)
 
 **Approach:** copy the family boilerplate from `pflex_exporter` (hand-rolled sibling with the full target contract) and rename. Concrete, not a placeholder.
@@ -2294,33 +2329,41 @@ git commit -m "feat(app): main wiring — server-before-collect, /health, SIGHUP
 - [ ] **Step 1: Copy and adapt the Makefile**
 
 Run:
+
 ```bash
 cp /Users/fjacquet/Projects/pflex_exporter/Makefile ./Makefile
 ```
+
 Edit `./Makefile`: replace every `pflex_exporter`/`pflex` with `licenses_exporter`. Verify the target contract:
+
 ```bash
 grep -E '^(tools|fmt-check|fmt|vet|lint|test|test-race|test-coverage|vuln|ci|sure|cli|sbom|release|release-snapshot|docker|run-cli|clean):' Makefile | sort
 ```
+
 Expected: all of `tools fmt-check fmt vet lint test test-race test-coverage vuln ci sure cli sbom release release-snapshot docker run-cli clean` present. Ensure `cli` injects version: `-ldflags "-X main.version=$(VERSION)"`.
 
 - [ ] **Step 2: Copy and adapt the Dockerfiles + goreleaser + linter config**
 
 Run:
+
 ```bash
 cp /Users/fjacquet/Projects/pflex_exporter/Dockerfile ./Dockerfile
 cp /Users/fjacquet/Projects/pflex_exporter/Dockerfile.goreleaser ./Dockerfile.goreleaser
 cp /Users/fjacquet/Projects/pflex_exporter/.goreleaser.yaml ./.goreleaser.yaml
 cp /Users/fjacquet/Projects/pflex_exporter/.golangci.yml ./.golangci.yml
 ```
+
 Edit each: replace `pflex_exporter`/`pflex`→`licenses_exporter`, set `EXPOSE 9105` in `Dockerfile`. Confirm the CA-cert line is `COPY --from=builder /etc/ssl/certs/ca-certificates.crt ...` (NOT `apk add ca-certificates`) and a non-root `USER` (`adduser -D -u 10001`). In `.goreleaser.yaml` confirm `version: 2`, CGO off, linux/darwin × amd64/arm64, cyclonedx-gomod SBOM, checksums, self-skipping Homebrew cask; update project + binary names.
 
 - [ ] **Step 3: Verify the gate runs**
 
 Run:
+
 ```bash
 make tools
 make ci
 ```
+
 Expected: `make ci` green — gofmt, vet, golangci-lint, `go test -race ./...`, govulncheck all pass. Fix any lint findings by restructuring (no `//nolint`).
 
 - [ ] **Step 4: Commit**
@@ -2335,6 +2378,7 @@ git commit -m "build: family Makefile contract, non-root Dockerfiles, GoReleaser
 ## Task 11: CI/CD caller stubs + dependabot
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`, `security.yml`, `release.yml`, `docs.yml`, `.github/dependabot.yml`
 
 **Approach:** the family consumes reusable workflows from `fjacquet/ci@v1`; each caller is ~12 lines. Copy templates and keep them thin (do NOT inline steps or SHA-pin — that lives in `fjacquet/ci`).
@@ -2342,6 +2386,7 @@ git commit -m "build: family Makefile contract, non-root Dockerfiles, GoReleaser
 - [ ] **Step 1: Copy the four caller stubs**
 
 Run:
+
 ```bash
 mkdir -p .github/workflows
 cp /Users/fjacquet/Projects/pflex_exporter/.github/workflows/ci.yml       .github/workflows/ci.yml
@@ -2349,14 +2394,17 @@ cp /Users/fjacquet/Projects/pflex_exporter/.github/workflows/security.yml .githu
 cp /Users/fjacquet/Projects/pflex_exporter/.github/workflows/release.yml  .github/workflows/release.yml
 cp /Users/fjacquet/Projects/pflex_exporter/.github/workflows/docs.yml     .github/workflows/docs.yml
 ```
+
 Verify each `uses:` targets `fjacquet/ci/.github/workflows/{go-ci,go-security,go-release,docs-publish}.yml@v1` with only caller `permissions:` + `secrets:` passthrough (`CODECOV_TOKEN`, `HOMEBREW_TAP_GITHUB_TOKEN`). Confirm nothing hardcodes `pflex`.
 
 - [ ] **Step 2: Copy and trim dependabot to gomod + docker only**
 
 Run:
+
 ```bash
 cp /Users/fjacquet/Projects/pflex_exporter/.github/dependabot.yml .github/dependabot.yml
 ```
+
 Verify it lists **only** `gomod` and `docker` ecosystems (no `github-actions`).
 
 - [ ] **Step 3: Commit**
@@ -2371,11 +2419,13 @@ git commit -m "ci: thin fjacquet/ci@v1 caller stubs (ci/security/release/docs) +
 ## Task 12: Observability demo stack (compose + Prometheus + Grafana)
 
 **Files:**
+
 - Create: `docker-compose.yml`, `docker-compose.ghcr.yml`, `prometheus.yml`, `deploy/prometheus/license.rules.yml`, `grafana/provisioning/datasources/datasource.yml`, `grafana/provisioning/dashboards/dashboards.yml`, `grafana/dashboards/licenses-overview.json`, `.env.example`
 
 - [ ] **Step 1: Copy the compose + provisioning skeleton from a sibling**
 
 Run:
+
 ```bash
 cp /Users/fjacquet/Projects/pflex_exporter/docker-compose.yml ./docker-compose.yml
 cp /Users/fjacquet/Projects/pflex_exporter/docker-compose.ghcr.yml ./docker-compose.ghcr.yml
@@ -2384,11 +2434,13 @@ mkdir -p deploy/prometheus grafana/provisioning/datasources grafana/provisioning
 cp /Users/fjacquet/Projects/pflex_exporter/grafana/provisioning/datasources/datasource.yml grafana/provisioning/datasources/datasource.yml
 cp /Users/fjacquet/Projects/pflex_exporter/grafana/provisioning/dashboards/dashboards.yml grafana/provisioning/dashboards/dashboards.yml
 ```
+
 Edit: service/image names `pflex`→`licenses_exporter`, scrape target port → **9105**, GHCR image → `ghcr.io/fjacquet/licenses_exporter:latest`. Set compose `environment:` to pass `M3651_*` and `VMWARE1_*` vars with literal defaults.
 
 - [ ] **Step 2: Write the alert rules**
 
 Create `deploy/prometheus/license.rules.yml`:
+
 ```yaml
 groups:
   - name: licenses
@@ -2412,6 +2464,7 @@ groups:
         annotations:
           summary: "license collector down for {{ $labels.vendor }}/{{ $labels.instance }}"
 ```
+
 Confirm `prometheus.yml` has a `rule_files:` entry pointing at the mounted rules path and a scrape job for `licenses_exporter:9105`.
 
 - [ ] **Step 3: Build the Grafana dashboard JSON**
@@ -2433,6 +2486,7 @@ Start from `pflex_exporter/grafana/dashboards/*.json` as a structural template (
 - [ ] **Step 4: Write `.env.example`**
 
 Create `.env.example`:
+
 ```bash
 # M365 (single-target quickstart; config.yaml is the source of truth)
 M3651_TENANT_ID=
@@ -2449,9 +2503,11 @@ GRAFANA_ADMIN_PASSWORD=admin
 - [ ] **Step 5: Verify the stack config**
 
 Run:
+
 ```bash
 docker compose config >/dev/null && echo "compose valid"
 ```
+
 Expected: `compose valid` (full `docker compose up` needs real creds).
 
 - [ ] **Step 6: Commit**
@@ -2466,6 +2522,7 @@ git commit -m "deploy: docker-compose + Prometheus rules + Grafana licenses dash
 ## Task 13: Docs & ADRs
 
 **Files:**
+
 - Create: `mkdocs.yml`, `docs/metrics.md`, `docs/deployment/docker.md`, `docs/dashboards.md`, `docs/adr/index.md`, `docs/adr/0001-*.md` … `0009-*.md`, `CHANGELOG.md`
 - (`CLAUDE.md` already exists — verify it matches the final layout.)
 
@@ -2476,11 +2533,14 @@ Create `docs/metrics.md` documenting every metric from Task 1 (name, gauge, labe
 - [ ] **Step 2: Write the ADRs**
 
 Run:
+
 ```bash
 mkdir -p docs/adr
 cp /Users/fjacquet/Projects/ppdd_exporter/docs/adr/index.md docs/adr/index.md   # then rewrite the list
 ```
+
 Author, as `docs/adr/NNNN-title.md` (Status/Context/Decision/Consequences), reusing sibling ADRs as templates:
+
 - `0001-supply-chain-release-hardening.md` (mirror `pflex` 0001)
 - `0002-prometheus-snapshot-model.md` (mirror `ppdd` 0001)
 - `0003-client-choice-govmomi-sdk-and-msgraph-sdk.md` — **novel**: govmomi available+useful (single property-collector fetch, current session auth) → SDK; msgraph-sdk-go chosen despite its heavy dep tree as a *roadmap-justified exception* (phase-2 Entra ID amortization), `azidentity` for auth.
@@ -2496,18 +2556,23 @@ Update `docs/adr/index.md` to list all nine.
 - [ ] **Step 3: MkDocs site + deployment/dashboard docs**
 
 Run:
+
 ```bash
 cp /Users/fjacquet/Projects/pflex_exporter/mkdocs.yml ./mkdocs.yml
 ```
+
 Edit `mkdocs.yml`: site name, repo URL, nav entries for `metrics.md`, `dashboards.md`, `deployment/docker.md`, the ADRs. Write `docs/deployment/docker.md` (compose quickstart + the required **`Organization.Read.All`** Graph app-permission grant + a vCenter read-only role note) and `docs/dashboards.md` (the panel/query table from Task 12). Build strict:
+
 ```bash
 uvx --with mkdocs-material --with pymdown-extensions mkdocs build --strict
 ```
+
 Expected: builds with no warnings.
 
 - [ ] **Step 4: Changelog + commit**
 
 Create `CHANGELOG.md` with an `Unreleased` → v1 entry summarizing the exporter, both collectors, schema, and demo stack. Then:
+
 ```bash
 git add mkdocs.yml docs/ CHANGELOG.md CLAUDE.md
 git commit -m "docs: metrics catalog, nine ADRs, mkdocs site, deployment + dashboard docs, changelog"
@@ -2518,6 +2583,7 @@ git commit -m "docs: metrics catalog, nine ADRs, mkdocs site, deployment + dashb
 ## Self-Review (completed by plan author)
 
 **1. Spec coverage** — each design-spec section maps to a task:
+
 - §1 scope (M365 + VMware) → Tasks 7, 8. §2 snapshot/dual-export/cold-start/reload/OTLP → Tasks 2, 3, 4, 5, 9. §3 `Source` → Task 3. §4 schema/labels/absent-not-zero → Tasks 1, 7, 8. §5 config → Task 6. §6 clients/auth/stateless/unlimited/paging → Tasks 7, 8; ADR-0003 → Task 13. §7 `--once/--debug/--trace` → Task 9. §8 conformance (Makefile/Docker/CI/demo/Grafana) → Tasks 10, 11, 12; docs/ADRs → Task 13. §9 tests (vcsim, both export paths, label parity) → Tasks 4, 5, 7, 8. Review addendum 2.1–2.6 → Tasks 7 (2.1, 2.2), 9 (2.3, 2.4), 8 (2.5), 5 (2.6). **No gaps.**
 
 **2. Placeholder scan** — every code step contains complete code and exact commands; no "TBD/handle edge cases/similar to Task N". The three confirm-at-impl notes (govmomi `Used` type, `expirationDate` value type, msgraph `NewPageIterator` signature) are explicit `go doc` verification steps, not placeholders — they exist because those signatures legitimately vary by SDK version.

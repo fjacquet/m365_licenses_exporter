@@ -17,7 +17,8 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 
 ### 2.1. VMware (vSphere) Connection Management
 
-* **Decision:** **Stateless Connection Lifecycle**
+- **Decision:** **Stateless Connection Lifecycle**
+
 - **Mechanics:** The VMware collector (`Source` implementation) will be fully stateless.
   1. For each 2-hour collection run, it will establish a fresh connection and log in to the vCenter API using `govmomi`.
   2. It will perform the single PropertyCollector query to retrieve license information from the `LicenseManager`.
@@ -26,7 +27,8 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 
 ### 2.2. Unlimited & Infinite Capacity Licenses (vSphere / M365)
 
-* **Decision:** **Omit total capacity metrics, emit used metrics only**
+- **Decision:** **Omit total capacity metrics, emit used metrics only**
+
 - **Mechanics:** When a license has infinite/unlimited capacity (e.g., evaluation, unlimited academic, or certain enterprise agreements):
   1. The exporter will **completely omit** the `license_seats_total` metric for that specific product series.
   2. The exporter will continue to emit the `license_seats_used` series.
@@ -34,7 +36,8 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 
 ### 2.3. Startup Cold-Start Behavior
 
-* **Decision:** **Omit target metrics during initial window**
+- **Decision:** **Omit target metrics during initial window**
+
 - **Mechanics:** Since the exporter serves HTTP and `/health` immediately at startup (before the first collection completes):
   1. Scraping `/metrics` during this startup window will return **only** standard exporter build and system metrics (e.g., `license_build_info`, `promhttp_*`).
   2. All target-specific license metrics (e.g., `license_seats_...` and `license_up`) will be completely omitted from the output.
@@ -42,7 +45,8 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 
 ### 2.4. Configuration Hot-Reload Lifecycle
 
-* **Decision:** **Immediate context cancellation & reset**
+- **Decision:** **Immediate context cancellation & reset**
+
 - **Mechanics:**
   1. Each background collection run operates under a cancelable `context.Context` spawned by the main controller loop.
   2. Upon receiving SIGHUP or a file-watch change event, the active run context is canceled immediately (abruptly and cleanly aborting any in-flight vCenter/M365 SDK requests).
@@ -51,7 +55,8 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 
 ### 2.5. Microsoft 365 Permissions & Pagination
 
-* **Decision:** **Explicit permission scoping & SDK pagination handling**
+- **Decision:** **Explicit permission scoping & SDK pagination handling**
+
 - **Mechanics:**
   1. The documentation and README will explicitly document that the M365 collector requires the **`Organization.Read.All`** (or `Directory.Read.All`) Microsoft Graph Application permission.
   2. The `internal/m365` package will implement full OData next link (`@odata.nextLink`) pagination handling to fetch all pages of SKUs.
@@ -59,7 +64,8 @@ To ensure complete robustness, five key operational areas (cold starts, hot-relo
 
 ### 2.6. OTLP Exporter Push Timestamping Strategy
 
-* **Decision:** **Observation-time points + explicit freshness metric** — *supersedes the initial snapshot-time proposal* (resolved 2026-07-01 after SDK review).
+- **Decision:** **Observation-time points + explicit freshness metric** — *supersedes the initial snapshot-time proposal* (resolved 2026-07-01 after SDK review).
+
 - **Mechanics:** The OTLP path stays on the family-standard **observable gauges + periodic reader**; each pushed point carries the reader's **observation time** (exactly as a Prometheus gauge behaves under scrape). Data age is conveyed explicitly by `license_collector_last_success_timestamp_seconds`, from which consumers compute `age = now - last_success`.
 - **Rationale:** Observable-gauge points **cannot be back-dated** in the OTel-Go SDK without abandoning the observable/periodic-reader model for a manual `metricdata.Export()` loop — a family-OTLP divergence. More importantly, stamping points with a 0–2h-old snapshot time would push them outside the timestamp-lookback window most metrics backends enforce (~1h is common on Prometheus-OTLP / Datadog / Dynatrace), **dropping data** for much of each 2h cycle. The freshness metric conveys the same data-age signal safely and keeps the exporter family-consistent. See design spec §2, "OTLP export specifics".
 

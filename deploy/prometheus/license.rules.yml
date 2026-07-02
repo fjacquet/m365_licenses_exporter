@@ -1,0 +1,21 @@
+groups:
+  - name: licenses
+    rules:
+      - alert: LicenseOverAllocated
+        expr: license_seats_used > license_seats_total
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.vendor }}/{{ $labels.product }} over-allocated on {{ $labels.instance }}"
+      - alert: LicenseExpiringSoon
+        expr: license_expiration_timestamp_seconds - time() < 30 * 86400
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.vendor }}/{{ $labels.product }} expires in < 30d"
+      - alert: LicenseCollectorDown
+        expr: license_up == 0
+        for: 30m
+        labels: { severity: critical }
+        annotations:
+          summary: "license collector down for {{ $labels.vendor }}/{{ $labels.instance }}"

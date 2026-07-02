@@ -1,0 +1,64 @@
+site_name: licenses_exporter
+site_description: Unified enterprise-license Prometheus + OTLP exporter (Microsoft 365, VMware vSphere)
+site_url: https://fjacquet.github.io/licenses_exporter/
+repo_url: https://github.com/fjacquet/licenses_exporter
+repo_name: fjacquet/licenses_exporter
+
+# The design-spec/plan working docs live under docs/superpowers/ and are not part of the
+# published site (and would otherwise fail `--strict` for not being listed in nav).
+exclude_docs: |
+  superpowers/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+nav:
+  - Metrics Reference: metrics.md
+  - Deployment:
+      - Docker: deployment/docker.md
+  - Dashboards: dashboards.md
+  - Architecture Decisions:
+      - Overview: adr/index.md
+      - 0001 Supply-chain / release hardening: adr/0001-supply-chain-release-hardening.md
+      - 0002 Prometheus snapshot model: adr/0002-prometheus-snapshot-model.md
+      - 0003 Client choice (govmomi + msgraph-sdk-go): adr/0003-client-choice-govmomi-sdk-and-msgraph-sdk.md
+      - 0004 Generic prefix, vendor labels: adr/0004-generic-prefix-vendor-label-schema.md
+      - 0005 Raw facts, absent-not-zero: adr/0005-raw-facts-absent-not-zero-naming-units.md
+      - 0006 Label-key consistency: adr/0006-label-key-consistency-invariant.md
+      - 0007 Token auth & retry policy: adr/0007-token-auth-retry-policy.md
+      - 0008 Config hot reload: adr/0008-config-hot-reload.md
+      - 0009 OTLP observation-time points: adr/0009-otlp-observation-time-vs-snapshot-time.md
+
+extra:
+  version: v0.1.0

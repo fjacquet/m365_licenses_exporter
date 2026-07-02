@@ -1,0 +1,47 @@
+version: "2"
+
+linters:
+  enable:
+    - gosec
+    - revive
+    - misspell
+    - unconvert
+  settings:
+    revive:
+      # Keep revive's default rule set active but drop the two doc-comment
+      # rules: Tasks 1-9b shipped the exporter without exported/package
+      # comments repo-wide, and this build-tooling task is scoped to
+      # Makefile/Dockerfile/GoReleaser/lint config only (no .go changes).
+      # Re-enable once a documentation pass adds the missing comments.
+      enable-default-rules: true
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+  exclusions:
+    rules:
+      # Reading operator-supplied paths is intended behavior: the --config file
+      # (internal/config/config.go) and the passwordFile/clientSecretFile secret
+      # refs (internal/m365/m365.go, internal/vmware/vmware.go) funnel through
+      # config the operator controls. The family standard forbids inline
+      # //nolint, so the G304 exclusion is path-scoped here instead.
+      - path: internal/config/config.go
+        linters: [gosec]
+        text: "G304"
+      - path: internal/m365/m365.go
+        linters: [gosec]
+        text: "G304"
+      - path: internal/vmware/vmware.go
+        linters: [gosec]
+        text: "G304"
+      # Test mocks intentionally write static fixtures to ResponseWriter; test
+      # signatures keep the standard (t *testing.T) param even when unused.
+      - path: _test\.go
+        linters: [gosec, revive]
+      # cobra's RunE signature is func(cmd *cobra.Command, args []string) error;
+      # this handler only needs args, but cmd stays in the signature to satisfy
+      # the interface.
+      - path: main.go
+        linters: [revive]
+        text: "unused-parameter"

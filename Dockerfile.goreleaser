@@ -1,0 +1,9 @@
+# Release image: copies the prebuilt GoReleaser binary (no builder stage, so there is
+# no builder to COPY a CA bundle from). distroless/static:nonroot already bundles
+# ca-certificates and runs as a non-root user (65532:65532) — no `apk add` needed.
+FROM gcr.io/distroless/static:nonroot
+COPY licenses_exporter /usr/local/bin/licenses_exporter
+COPY config.yaml /etc/licenses_exporter/config.yaml
+EXPOSE 9105
+ENTRYPOINT ["/usr/local/bin/licenses_exporter"]
+CMD ["--config", "/etc/licenses_exporter/config.yaml"]
