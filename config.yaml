@@ -1,5 +1,9 @@
 collection:
   interval: 2h
+# Optional OTLP/gRPC push export. Omit or leave endpoint empty to run Prometheus-only.
+otlp:
+  endpoint: ""      # e.g. otel-collector:4317
+  insecure: false   # true to disable TLS (in-cluster collectors)
 collectors:
   m365:
     enabled: true

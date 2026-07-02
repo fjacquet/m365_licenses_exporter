@@ -58,3 +58,48 @@ collectors:
 		t.Fatal("expected error on unset env var")
 	}
 }
+
+func TestLoadParsesOTLPSection(t *testing.T) {
+	p := writeTemp(t, `
+collection: { interval: 1h }
+otlp:
+  endpoint: otel-collector:4317
+  insecure: true
+collectors:
+  vmware:
+    enabled: true
+    vcenters:
+      - instance: v1
+        host: h
+        username: u
+        password: p
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.OTLP.Endpoint != "otel-collector:4317" || !cfg.OTLP.Insecure {
+		t.Fatalf("otlp parsed wrong: %+v", cfg.OTLP)
+	}
+}
+
+func TestLoadOTLPAbsentIsDisabled(t *testing.T) {
+	p := writeTemp(t, `
+collection: { interval: 1h }
+collectors:
+  vmware:
+    enabled: true
+    vcenters:
+      - instance: v1
+        host: h
+        username: u
+        password: p
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.OTLP.Endpoint != "" {
+		t.Fatalf("expected empty OTLP endpoint, got %q", cfg.OTLP.Endpoint)
+	}
+}

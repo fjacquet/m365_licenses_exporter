@@ -12,11 +12,19 @@ import (
 
 type Config struct {
 	Collection CollectionConfig `yaml:"collection"`
+	OTLP       OTLPConfig       `yaml:"otlp"`
 	Collectors CollectorsConfig `yaml:"collectors"`
 }
 
 type CollectionConfig struct {
 	Interval time.Duration `yaml:"interval"`
+}
+
+// OTLPConfig configures the optional OTLP/gRPC push exporter. Endpoint empty
+// disables OTLP entirely (the exporter then serves Prometheus only).
+type OTLPConfig struct {
+	Endpoint string `yaml:"endpoint"`
+	Insecure bool   `yaml:"insecure"`
 }
 
 type CollectorsConfig struct {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime"
 	"sort"
 	"time"
@@ -53,6 +54,16 @@ func Run(ctx context.Context, cfg *config.Config, version, addr string, once boo
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(license.NewPromCollector(store))
+
+	instanceID, _ := os.Hostname()
+	if instanceID == "" {
+		instanceID = "unknown"
+	}
+	shutdownOTLP, err := setupOTLP(ctx, cfg.OTLP, version, instanceID, store)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = shutdownOTLP(context.Background()) }()
 
 	health := &Health{}
 	mux := http.NewServeMux()
