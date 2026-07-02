@@ -1,9 +1,9 @@
 # Pull-based stack: runs the published GHCR image instead of building locally.
 #
-#   VMWARE1_PASSWORD='your-monitor-password' docker compose -f docker-compose.ghcr.yml up -d
+#   VCENTER_PASSWORD='your-monitor-password' docker compose -f docker-compose.ghcr.yml up -d
 #
 # Pin a version with LICENSES_EXPORTER_TAG (defaults to :latest):
-#   LICENSES_EXPORTER_TAG=0.2.1 VMWARE1_PASSWORD='...' docker compose -f docker-compose.ghcr.yml up -d
+#   LICENSES_EXPORTER_TAG=0.2.1 VCENTER_PASSWORD='...' docker compose -f docker-compose.ghcr.yml up -d
 #
 # Refresh images later with:  docker compose -f docker-compose.ghcr.yml pull
 services:
@@ -17,12 +17,12 @@ services:
     environment:
       # Single-target quickstart credentials. config.yaml is the source of truth for
       # which ${ENV} refs are actually consumed — env passthrough never replaces it.
-      - M3651_TENANT_ID=${M3651_TENANT_ID:-tenant-id}
-      - M3651_CLIENT_ID=${M3651_CLIENT_ID:-client-id}
-      - M3651_CLIENT_SECRET=${M3651_CLIENT_SECRET:-}
-      - VMWARE1_HOST=${VMWARE1_HOST:-https://vcsa01/sdk}
-      - VMWARE1_USER=${VMWARE1_USER:-vmware-username}
-      - VMWARE1_PASSWORD=${VMWARE1_PASSWORD:-}
+      - M365_TENANT_ID=${M365_TENANT_ID:-tenant-id}
+      - M365_CLIENT_ID=${M365_CLIENT_ID:-client-id}
+      - M365_CLIENT_SECRET=${M365_CLIENT_SECRET:-}
+      - VCENTER_HOST=${VCENTER_HOST:-https://vcsa01/sdk}
+      - VCENTER_USER=${VCENTER_USER:-vmware-username}
+      - VCENTER_PASSWORD=${VCENTER_PASSWORD:-}
     restart: unless-stopped
 
   prometheus:

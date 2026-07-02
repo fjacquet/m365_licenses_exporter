@@ -13,12 +13,12 @@ services:
     environment:
       # Single-target quickstart credentials. config.yaml is the source of truth for
       # which ${ENV} refs are actually consumed — env passthrough never replaces it.
-      - M3651_TENANT_ID=${M3651_TENANT_ID:-tenant-id}
-      - M3651_CLIENT_ID=${M3651_CLIENT_ID:-client-id}
-      - M3651_CLIENT_SECRET=${M3651_CLIENT_SECRET:-}
-      - VMWARE1_HOST=${VMWARE1_HOST:-https://vcsa01/sdk}
-      - VMWARE1_USER=${VMWARE1_USER:-vmware-username}
-      - VMWARE1_PASSWORD=${VMWARE1_PASSWORD:-}
+      - M365_TENANT_ID=${M365_TENANT_ID:-tenant-id}
+      - M365_CLIENT_ID=${M365_CLIENT_ID:-client-id}
+      - M365_CLIENT_SECRET=${M365_CLIENT_SECRET:-}
+      - VCENTER_HOST=${VCENTER_HOST:-https://vcsa01/sdk}
+      - VCENTER_USER=${VCENTER_USER:-vmware-username}
+      - VCENTER_PASSWORD=${VCENTER_PASSWORD:-}
     restart: unless-stopped
 
   prometheus:
