@@ -60,8 +60,11 @@ docs:
 coverage-upload:
 	uvx --from codecov-cli codecov upload-process --file $(COVER) || true
 
+# --parallelism 1: this is the dependency-heaviest exporter in the family
+# (msgraph-sdk-go + otel/gRPC); building all target arches concurrently OOMs the
+# CI runner. Serialize the builds so peak memory stays within the runner.
 release:
-	goreleaser release --clean
+	goreleaser release --clean --parallelism 1
 
 # Aggregate gate run by CI.
 ci: lint test build vuln
