@@ -12,7 +12,7 @@
 
 - **Package + module:** package name `licenses_core`; module path `github.com/fjacquet/licenses-exporter-core`; consumers import it aliased as `core`.
 - **Library, not a binary:** no `cmd/`, no `main` package, no GoReleaser/Docker/Homebrew/cli target. CI is `lint + test + vuln` only.
-- **Schema identity is inviolable:** every `Sample` is built *only* by a core constructor; a core golden test locks each metric name's exact label-key set.
+- **Schema identity is inviolable:** every `Sample` is built *only* by a core constructor; a core golden test locks the vendor-facing constructors' label-key sets (seats + expiration), with the remaining engine-emitted metric names extended in a later release (see the core CHANGELOG's deferred items).
 - **Absent-not-zero, raw-facts:** omit perpetual expiration and unlimited totals; never emit a fake `0`/sentinel; an unparseable value yields an absent sample.
 - **Secrets:** `${ENV}` / file-based only; `Expand` fails on unset `${VAR}`; `--trace` (consumer flag) never enables SDK debug.
 - **Behaviour parity:** moved code keeps identical behaviour — the ported tests must pass unchanged except for import-path/package edits.

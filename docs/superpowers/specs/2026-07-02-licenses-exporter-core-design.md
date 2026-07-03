@@ -155,12 +155,13 @@ func (b Base) Validate() error                       // interval > 0, otlp coher
 // (base + vendor block) and rebuilds sources; the engine calls it at startup and
 // on every reload, so vendor-specific config changes hot-reload too.
 type App struct {
-    Version string
-    Addr    string  // --web.listen-address
-    Once    bool    // --once
-    Debug   bool    // gates the --once sample dump
-    Trace   bool    // repo-owned transport tracing only (never SDK debug)
-    Load    func() (Base, []Source, error)
+    Version    string
+    Addr       string // --web.listen-address
+    Once       bool   // --once
+    Debug      bool   // gates the --once sample dump
+    Trace      bool   // repo-owned transport tracing only (never SDK debug)
+    ConfigPath string // --config; enables file-watch reload (empty => SIGHUP-only)
+    Load       func() (Base, []Source, error)
 }
 
 // Main runs the whole lifecycle: --once path, or bind-once server + shared
