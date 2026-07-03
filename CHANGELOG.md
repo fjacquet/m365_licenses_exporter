@@ -4,15 +4,20 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] — 2026-07-03
 
 ### Changed
 - **Repo split:** `licenses_exporter` becomes `m365_licenses_exporter` — the first
-  consumer of `github.com/fjacquet/licenses-exporter-core` v0.1.0. The vendor-neutral
+  consumer of `github.com/fjacquet/licenses-exporter-core` v1.0.0. The vendor-neutral
   engine and the VMware collector are removed; only the Microsoft 365 collector
   remains. The `license_` wire schema is unchanged (built via core constructors), so
   existing dashboards and alert rules keep working. See ADR-0010.
 - Module path is now `github.com/fjacquet/m365_licenses_exporter`.
+
+### Fixed
+- `config.yaml` no longer embeds a literal `${ENV}` in its header comment, which
+  broke strict env expansion — `--config config.yaml` aborted with
+  `unset environment variable "ENV"` before any real ref was read.
 
 ## [1.0.0] — 2026-07-02
 

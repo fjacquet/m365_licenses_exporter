@@ -62,4 +62,4 @@ nav:
       - 0010 Consume licenses-exporter-core: adr/0010-consume-licenses-exporter-core.md
 
 extra:
-  version: v0.1.0
+  version: v1.1.0
