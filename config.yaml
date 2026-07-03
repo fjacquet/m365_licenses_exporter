@@ -1,5 +1,6 @@
 # m365_licenses_exporter — Microsoft 365 license exporter.
-# Secrets are ${ENV} refs (expanded at load) or clientSecretFile paths.
+# Secrets are environment-variable refs (from the real env or a .env file,
+# expanded at load) or clientSecretFile paths.
 
 collection:
   interval: 2h            # how often to poll the Graph API
