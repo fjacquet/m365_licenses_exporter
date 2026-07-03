@@ -129,7 +129,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * license_seats_used / license_seats_total",
+          "expr": "100 * license_seats_used{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} / license_seats_total{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"}",
           "legendFormat": "{{vendor}}/{{product}} ({{instance}})"
         }
       ]
@@ -161,7 +161,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "license_seats_used > license_seats_total",
+          "expr": "license_seats_used{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} > license_seats_total{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto"
@@ -214,7 +214,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "license_seats_total - license_seats_used",
+          "expr": "license_seats_total{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - license_seats_used{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"}",
           "legendFormat": "{{vendor}}/{{product}} ({{instance}})"
         }
       ]
@@ -252,7 +252,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(license_expiration_timestamp_seconds - time()) / 86400",
+          "expr": "(license_expiration_timestamp_seconds{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - time()) / 86400",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto"
@@ -286,7 +286,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "license_expiration_timestamp_seconds - time() < 30*86400",
+          "expr": "license_expiration_timestamp_seconds{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - time() < 30*86400",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto"
@@ -392,7 +392,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - license_collector_last_success_timestamp_seconds",
+          "expr": "time() - license_collector_last_success_timestamp_seconds{vendor=~\"$vendor\",instance=~\"$instance\"}",
           "legendFormat": "{{vendor}} ({{instance}})"
         }
       ]
