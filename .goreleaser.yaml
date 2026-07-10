@@ -62,6 +62,24 @@ sboms:
     cmd: go
     args: ["run", "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0", "mod", "-json", "-output", "$document", "../"]
 
+# Multi-arch container images (linux/amd64 + linux/arm64) published to GHCR via Buildx.
+# The Dockerfile.goreleaser COPYs both the prebuilt binary (per TARGETPLATFORM) and the
+# sample config, so config.yaml is declared in extra_files.
+dockers_v2:
+  - id: m365_licenses_exporter
+    ids: [m365_licenses_exporter]
+    dockerfile: Dockerfile.goreleaser
+    images: ["ghcr.io/fjacquet/m365_licenses_exporter"]
+    tags: ["{{ .Version }}", "{{ .Major }}.{{ .Minor }}", "{{ if not .Prerelease }}latest{{ end }}"]
+    platforms: [linux/amd64, linux/arm64]
+    extra_files: [config.yaml]
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.source: "https://github.com/fjacquet/m365_licenses_exporter"
+    sbom: true
+
 # Homebrew cask (macOS only — casks are not supported on Linux). Published to a separate
 # tap repo, which requires a cross-repo PAT (HOMEBREW_TAP_GITHUB_TOKEN); the default
 # GITHUB_TOKEN cannot push to another repo. `skip_upload` keeps releases (and local
