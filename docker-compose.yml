@@ -16,6 +16,15 @@ services:
       - M365_TENANT_ID=${M365_TENANT_ID:-tenant-id}
       - M365_CLIENT_ID=${M365_CLIENT_ID:-client-id}
       - M365_CLIENT_SECRET=${M365_CLIENT_SECRET:-}
+    healthcheck:
+      # 127.0.0.1, never localhost: busybox wget resolves localhost via ::1 first
+      # and the exporter binds IPv4 only. Values must match the Dockerfile's
+      # HEALTHCHECK exactly — timeout is 5s in both places.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:9105/livez"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   prometheus:
