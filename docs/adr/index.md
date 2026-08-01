@@ -19,6 +19,7 @@ original unified engine, now owned by `licenses-exporter-core`.
 | [0008](0008-config-hot-reload.md) | Config hot reload: cancelable context + last-good-snapshot continuity | accepted |
 | [0009](0009-otlp-observation-time-vs-snapshot-time.md) | OTLP push: observation-time points, not snapshot-time | accepted |
 | [0010](0010-consume-licenses-exporter-core.md) | Consume `licenses-exporter-core` instead of an in-repo engine | accepted |
+| [0011](0011-livez-readyz-probes-and-alpine-release-image.md) | `/livez` + `/readyz` probes and an Alpine release image at uid 10001 | accepted |
 
-To add a decision, copy [`0010`](0010-consume-licenses-exporter-core.md)'s structure to
-the next number and link it here.
+To add a decision, copy [`0011`](0011-livez-readyz-probes-and-alpine-release-image.md)'s
+structure to the next number and link it here.

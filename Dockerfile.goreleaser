@@ -1,10 +1,29 @@
-# Release image: copies the prebuilt GoReleaser binary (no builder stage, so there is
-# no builder to COPY a CA bundle from). distroless/static:nonroot already bundles
-# ca-certificates and runs as a non-root user (65532:65532) — no `apk add` needed.
-FROM gcr.io/distroless/static:nonroot
+# Release image: copies the prebuilt GoReleaser binary (buildx lays it out per-platform
+# as ${TARGETPLATFORM}/m365_licenses_exporter in the dockers_v2 context). Alpine, not
+# distroless: the family standard is one base image everywhere, and a distroless image
+# has no shell and no wget, so it cannot carry the HEALTHCHECK below.
+# There is no builder stage to COPY a CA bundle from, so ca-certificates comes from apk.
+# For local/dev builds from source, use the multi-stage ./Dockerfile instead.
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates && \
+    adduser -D -u 10001 licenses && \
+    mkdir -p /var/log/m365_licenses_exporter && \
+    chown licenses:licenses /var/log/m365_licenses_exporter
+
 ARG TARGETPLATFORM
 COPY ${TARGETPLATFORM}/m365_licenses_exporter /usr/local/bin/m365_licenses_exporter
 COPY config.yaml /etc/m365_licenses_exporter/config.yaml
+
 EXPOSE 9105
+
+# 127.0.0.1, never localhost: busybox wget resolves localhost via ::1 first and the
+# exporter binds IPv4 only. The `|| exit 1` idiom requires shell-form CMD, so hadolint
+# DL3025 fires here by construction — expected family-wide, not a defect.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1:9105/livez || exit 1
+
+USER licenses
+
 ENTRYPOINT ["/usr/local/bin/m365_licenses_exporter"]
 CMD ["--config", "/etc/m365_licenses_exporter/config.yaml"]

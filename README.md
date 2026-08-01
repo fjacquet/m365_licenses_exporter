@@ -38,6 +38,7 @@ each source's first collection cycle resolves.
 make cli
 ./bin/m365_licenses_exporter --config config.yaml
 # metrics: http://localhost:9105/metrics   health: http://localhost:9105/health
+# probes:  http://localhost:9105/livez     http://localhost:9105/readyz  (always 200)
 ```
 
 Useful flags: `--once --debug` runs a single collection cycle and dumps every collected

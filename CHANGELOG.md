@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking
+- The published container image runs as uid **10001** (named user `licenses`),
+  not `65532`. `Dockerfile.goreleaser` moves from `gcr.io/distroless/static:nonroot`
+  to `alpine:latest`, matching the local `./Dockerfile` and the rest of the
+  exporter family. Anyone pinning the container uid — a `securityContext.runAsUser`,
+  ownership on a mounted secret or log volume — must update it. See ADR-0011.
+
+### Added
+- **`/livez` and `/readyz`**, both always 200 and reading no state, via
+  `licenses-exporter-core` v1.1.1. Point Kubernetes probes and container
+  healthchecks at these, never at `/metrics`.
+- **`HEALTHCHECK`** against `http://127.0.0.1:9105/livez` in both `Dockerfile` and
+  `Dockerfile.goreleaser`, and a matching `healthcheck:` in `docker-compose.yml`
+  and `docker-compose.ghcr.yml`. The ghcr healthcheck needs an image from this
+  release or later — earlier published images are distroless and carry no `wget`.
+
+### Security
+- Bump `licenses-exporter-core` to v1.1.1 (documentation-only release), pulling
+  in **GO-2026-6061** (grpc v1.82.0 → v1.83.0), a reachable vulnerability fixed
+  in core's underlying v1.1.0 code but not called out in its release notes.
+
+### Changed
+- **`/health` now always returns 200**, with `starting`/`ok` as the body rather
+  than the status code. It previously returned 503 until the first collection
+  cycle completed, which restarted healthy pods under a `livenessProbe` and
+  reported containers unhealthy for the whole start-up window. Anything asserting
+  a 503 from `/health` must be updated.
+- `prometheus/client_golang` moves to 1.24.1 (via the core bump). `/metrics` now
+  accepts repeated `name[]` query parameters for metric filtering — no code
+  change needed since this exporter already uses a plain
+  `promhttp.HandlerFor(reg, promhttp.HandlerOpts{})`. Scraping with no
+  parameter is unaffected. Metric-name validation also always uses the UTF-8
+  scheme now; neither core nor this repo sets the legacy
+  `model.NameValidationScheme` global, so there is no observable effect here.
+
 ## [1.1.2] — 2026-07-10
 
 ### Security
