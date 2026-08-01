@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-08-01
+
 ### Breaking
 - The published container image runs as uid **10001** (named user `licenses`),
   not `65532`. `Dockerfile.goreleaser` moves from `gcr.io/distroless/static:nonroot`
