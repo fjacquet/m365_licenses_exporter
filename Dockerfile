@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.26.4 AS builder
+FROM golang:1.26.5 AS builder
 
 WORKDIR /app
 
@@ -30,6 +30,12 @@ COPY --from=builder /app/m365_licenses_exporter /usr/bin/m365_licenses_exporter
 COPY config.yaml /etc/m365_licenses_exporter/config.yaml
 
 EXPOSE 9105
+
+# 127.0.0.1, never localhost: busybox wget resolves localhost via ::1 first and the
+# exporter binds IPv4 only. The `|| exit 1` idiom requires shell-form CMD, so hadolint
+# DL3025 fires here by construction — expected family-wide, not a defect.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1:9105/livez || exit 1
 
 USER licenses
 
