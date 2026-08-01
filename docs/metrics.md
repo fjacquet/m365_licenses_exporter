@@ -52,6 +52,10 @@ This table is the diff target for `--once --debug`, which dumps every collected 
   resolves, `/metrics` exposes **only** `license_build_info` — no `license_up` or per-target
   series exist yet, so a scrape during that window can never see a transient `0` or a
   flapping target.
+- **`name[]` filtering.** Via the `prometheus/client_golang` bump carried in
+  `licenses-exporter-core` v1.1.1, `/metrics` accepts repeated
+  [`name[]` query parameters](https://github.com/prometheus/client_golang/blob/main/prometheus/promhttp/http.go)
+  to return only the named metric families. A plain scrape with no parameter is unaffected.
 - **Label-key consistency.** Every series of a given metric name carries the same label-key
   set (see [ADR-0006](adr/0006-label-key-consistency-invariant.md)), built from the shared
   constructors in `licenses-exporter-core` (see
