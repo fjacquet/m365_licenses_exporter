@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking
+- The published container image runs as uid **10001** (named user `licenses`),
+  not `65532`. `Dockerfile.goreleaser` moves from `gcr.io/distroless/static:nonroot`
+  to `alpine:latest`, matching the local `./Dockerfile` and the rest of the
+  exporter family. Anyone pinning the container uid — a `securityContext.runAsUser`,
+  ownership on a mounted secret or log volume — must update it. See ADR-0011.
+
+### Added
+- **`/livez` and `/readyz`**, both always 200 and reading no state, via
+  `licenses-exporter-core` v1.1.0. Point Kubernetes probes and container
+  healthchecks at these, never at `/metrics`.
+- **`HEALTHCHECK`** against `http://127.0.0.1:9105/livez` in both `Dockerfile` and
+  `Dockerfile.goreleaser`, and a matching `healthcheck:` in `docker-compose.yml`
+  and `docker-compose.ghcr.yml`. The ghcr healthcheck needs an image from this
+  release or later — earlier published images are distroless and carry no `wget`.
+
+### Changed
+- **`/health` now always returns 200**, with `starting`/`ok` as the body rather
+  than the status code. It previously returned 503 until the first collection
+  cycle completed, which restarted healthy pods under a `livenessProbe` and
+  reported containers unhealthy for the whole start-up window. Anything asserting
+  a 503 from `/health` must be updated.
+
 ## [1.1.2] — 2026-07-10
 
 ### Security

@@ -60,6 +60,7 @@ nav:
       - 0008 Config hot reload: adr/0008-config-hot-reload.md
       - 0009 OTLP observation-time points: adr/0009-otlp-observation-time-vs-snapshot-time.md
       - 0010 Consume licenses-exporter-core: adr/0010-consume-licenses-exporter-core.md
+      - 0011 /livez + /readyz probes, Alpine release image: adr/0011-livez-readyz-probes-and-alpine-release-image.md
 
 extra:
   version: v1.1.0

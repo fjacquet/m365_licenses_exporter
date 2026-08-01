@@ -1,8 +1,11 @@
 # Docker deployment
 
-The image (`Dockerfile`) is a non-root, multi-stage Alpine build: it runs as the
-unprivileged `licenses` user (uid `10001`), listens on `9105`, and reads `config.yaml` from
-`/etc/m365_licenses_exporter/config.yaml`.
+Both images are non-root Alpine builds running as the unprivileged `licenses`
+user (uid `10001`), listening on `9105` and reading `config.yaml` from
+`/etc/m365_licenses_exporter/config.yaml`. `Dockerfile` is the multi-stage build
+from source; `Dockerfile.goreleaser` is the release image published to GHCR,
+which copies the prebuilt binary. Published images before the ADR-0011 release
+were `gcr.io/distroless/static:nonroot` at uid `65532`.
 
 ## Standalone container
 
@@ -22,8 +25,21 @@ with `config references unset environment variable "..."`. Secrets can alternati
 supplied as a file via `clientSecretFile` in `config.yaml`, mounted as a read-only volume
 instead of passed as an env var.
 
-`/metrics` and `/health` are both served on `9105`; `/health` returns HTTP 200 with
-`starting` until the first collection cycle completes for every enabled source, then `ok`.
+Four routes are served on `9105`:
+
+| Path | Status | Body |
+|---|---|---|
+| `/metrics` | 200 | Prometheus exposition |
+| `/health` | always 200 | `starting` until the first collection cycle completes for every enabled source, then `ok` |
+| `/livez` | always 200 | empty |
+| `/readyz` | always 200 | empty |
+
+Point Kubernetes probes and container healthchecks at `/livez` and `/readyz` —
+never at `/metrics`, which renders the whole exposition per probe tick and can
+block behind a slow collection cycle. Both Dockerfiles ship a `HEALTHCHECK`
+against `http://127.0.0.1:9105/livez` (`127.0.0.1`, not `localhost`: busybox
+`wget` tries `::1` first and the exporter binds IPv4 only), and both compose
+files carry the matching `healthcheck:`.
 
 ## One-command demo stack (Compose)
 
