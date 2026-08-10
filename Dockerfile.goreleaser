@@ -4,7 +4,7 @@
 # has no shell and no wget, so it cannot carry the HEALTHCHECK below.
 # There is no builder stage to COPY a CA bundle from, so ca-certificates comes from apk.
 # For local/dev builds from source, use the multi-stage ./Dockerfile instead.
-FROM alpine:latest
+FROM docker.io/library/alpine:latest
 
 RUN apk --no-cache add ca-certificates && \
     adduser -D -u 10001 licenses && \
