@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
 	github.com/fjacquet/licenses-exporter-core v1.1.1
-	github.com/microsoftgraph/msgraph-sdk-go v1.101.0
+	github.com/microsoftgraph/msgraph-sdk-go v1.102.0
 	github.com/microsoftgraph/msgraph-sdk-go-core v1.4.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/cobra v1.10.2
