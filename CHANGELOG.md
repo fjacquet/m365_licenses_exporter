@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.1.3] — 2026-09-13
+
+### Security
+
+- `golang.org/x/crypto` 0.55.0 -> 0.57.0, fixing **GO-2026-6354** and **GO-2026-6355**
+  (reachable via `ssh.NewClientConn`).
+- `google.golang.org/grpc` (transitive, via `licenses-exporter-core`) 1.83.0 -> 1.83.2,
+  fixing **GHSA-vp52-pcj8-j9qc** and **GHSA-2v4p-qf9q-27wj** (HIGH).
+
+### Changed
+
+- `github.com/fjacquet/licenses-exporter-core` 1.1.1 -> 1.1.2, also carrying an `otel`
+  1.45.0 -> 1.46.0 refresh and a `logrus` 1.10.0 -> 1.10.2 bump.
+- `github.com/Azure/azure-sdk-for-go/sdk/azidentity` 1.14.0 -> 1.14.1.
+- `github.com/microsoftgraph/msgraph-sdk-go` 1.101.0 -> 1.102.0.
+- Docker base image `golang` 1.26.6 -> 1.27.1.
+- Dependabot auto-merge enabled for this repo.
+
 ## [2.0.0] — 2026-08-01
 
 ### Breaking
