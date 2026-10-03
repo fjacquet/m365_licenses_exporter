@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.1.4] — 2026-10-03
+
+### Changed
+
+- Go 1.26.6 -> 1.27.1 (`go` directive in `go.mod`).
+- Makefile tool pins: golangci-lint v2.12.2 -> v2.13.2, goreleaser v2.16.0 -> v2.18.0.
+- `github.com/microsoftgraph/msgraph-sdk-go` 1.102.0 -> 1.103.0.
+- Dependencies refreshed with `go get -u ./...`: `azcore` 1.23.1 -> 1.23.2, MSAL for Go 1.9.0 -> 1.10.1,
+  `kiota-abstractions-go` 1.10.1 -> 1.11.1, OpenTelemetry 1.46.0 -> 1.47.0, `prometheus/common` 0.71.0 -> 0.72.0.
+- `google.golang.org/grpc` kept at 1.83.2: 1.84.0 is affected by **GO-2026-6443**.
+
 ## [2.1.3] — 2026-09-13
 
 ### Security
