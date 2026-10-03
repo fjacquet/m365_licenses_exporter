@@ -1,6 +1,6 @@
 module github.com/fjacquet/m365_licenses_exporter
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
