@@ -3,7 +3,7 @@ module github.com/fjacquet/m365_licenses_exporter
 go 1.27.2
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.15.0
 	github.com/fjacquet/licenses-exporter-core v1.1.3
 	github.com/microsoftgraph/msgraph-sdk-go v1.104.0
 	github.com/microsoftgraph/msgraph-sdk-go-core v1.4.1
